@@ -1,8 +1,8 @@
-# ⚡ Motor de Conciliação Bancária
+#  Motor de Conciliação Bancária
 
 Sistema de conciliação automática de extratos bancários com Spring Boot + PostgreSQL.
 
-## 🏗️ Arquitetura
+##  Arquitetura
 
 ```
 bank-reconciliation/
@@ -33,7 +33,7 @@ bank-reconciliation/
 └── init.sql                          # Dados de exemplo
 ```
 
-## 🚀 Como Rodar
+##  Como Rodar
 
 ### Pré-requisitos
 - Java 17+
@@ -58,7 +58,7 @@ A API sobe em `http://localhost:8080/api`
 docker-compose up --build
 ```
 
-## 🔌 Endpoints da API
+##  Endpoints da API
 
 ### Conciliação
 | Método | Endpoint | Descrição |
@@ -107,7 +107,7 @@ Formato padrão SGML/OFX usado pelos bancos brasileiros. O parser extrai as tags
 </STMTTRN>
 ```
 
-## ⚙️ Algoritmo de Matching
+##  Algoritmo de Matching
 
 ```
 Para cada transação do extrato:
@@ -126,7 +126,7 @@ Configurável em `ConciliacaoService.java`:
 private static final int TOLERANCIA_DIAS = 1; // padrão: ±1 dia
 ```
 
-## 🧪 Testes
+##  Testes
 
 ```bash
 cd backend
@@ -134,12 +134,12 @@ mvn test
 ```
 
 Os testes cobrem:
-- ✅ Match exato de data e valor
-- ✅ Divergência quando não há correspondência
-- ✅ Múltiplas transações com pendentes
-- ✅ Lançamentos pendentes sem match
+-  Match exato de data e valor
+-  Divergência quando não há correspondência
+-  Múltiplas transações com pendentes
+-  Lançamentos pendentes sem match
 
-## 🐳 Variáveis de Ambiente
+##  Variáveis de Ambiente
 
 ```env
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/bank_reconciliation
@@ -147,7 +147,7 @@ SPRING_DATASOURCE_USERNAME=postgres
 SPRING_DATASOURCE_PASSWORD=postgres
 ```
 
-## 📊 Dashboard
+##  Dashboard
 
 Abra `frontend/dashboard.html` no navegador para o dashboard interativo que permite:
 - Registrar lançamentos financeiros
