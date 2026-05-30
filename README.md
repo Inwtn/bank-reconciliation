@@ -1,101 +1,184 @@
-#  Motor de Conciliação Bancária
+# Bank Reconciliation Engine
 
-Sistema de conciliação automática de extratos bancários com Spring Boot + PostgreSQL.
+![Java](https://img.shields.io/badge/Java-17-007396?style=flat-square&logo=java)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2-6DB33F?style=flat-square&logo=springboot)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=flat-square&logo=postgresql)
+![Maven](https://img.shields.io/badge/Maven-3.9-C71A36?style=flat-square&logo=apachemaven)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
-##  Arquitetura
+Motor de conciliação bancária automática que cruza extratos bancários (OFX/CSV) com os lançamentos financeiros registrados no sistema, identificando o que foi pago, o que está pendente e onde há divergências.
+
+---
+
+## O problema que resolve
+
+Empresas que gerenciam fluxo de caixa precisam comparar manualmente o extrato bancário com suas contas a pagar e receber — um processo lento e sujeito a erros. Este sistema automatiza esse cruzamento de dados, entregando em segundos um relatório completo de conciliação.
+
+---
+
+## Funcionalidades
+
+- Upload de extratos nos formatos OFX e CSV
+- Matching automático por valor, tipo e data (com tolerância configurável de dias)
+- Classificação de cada transação como Conciliado, Divergente ou Pendente
+- Dashboard web para visualização dos resultados
+- Histórico de todas as importações realizadas
+- API REST documentada com Swagger UI
+
+---
+
+## Arquitetura
 
 ```
 bank-reconciliation/
-├── backend/                          # API Spring Boot
-│   ├── src/main/java/com/reconciliation/
-│   │   ├── model/                    # Entidades JPA
-│   │   │   ├── Lancamento.java       # Contas a pagar/receber
-│   │   │   ├── ExtratoBancario.java  # Linhas do extrato importado
-│   │   │   ├── Importacao.java       # Histórico de importações
-│   │   │   ├── TipoLancamento.java   # DEBITO | CREDITO
-│   │   │   └── StatusConciliacao.java# PENDENTE | CONCILIADO | DIVERGENTE
-│   │   ├── parser/
-│   │   │   ├── OfxParser.java        # Parser de arquivos OFX (SGML/XML)
-│   │   │   └── CsvParser.java        # Parser de arquivos CSV
-│   │   ├── service/
-│   │   │   ├── ConciliacaoService.java # ← MOTOR PRINCIPAL
-│   │   │   └── LancamentoService.java
-│   │   ├── controller/
-│   │   │   ├── ConciliacaoController.java
-│   │   │   └── LancamentoController.java
-│   │   ├── dto/                      # DTOs de request/response
-│   │   ├── repository/               # Repositórios JPA
-│   │   └── config/                   # CORS, Swagger, Exception Handler
-│   └── src/test/                     # Testes de integração
+├── backend/
+│   └── src/main/java/com/reconciliation/
+│       ├── model/
+│       │   ├── Lancamento.java           # Contas a pagar/receber
+│       │   ├── ExtratoBancario.java      # Linhas do extrato importado
+│       │   ├── Importacao.java           # Histórico de importações
+│       │   ├── TipoLancamento.java       # DEBITO | CREDITO
+│       │   └── StatusConciliacao.java    # PENDENTE | CONCILIADO | DIVERGENTE
+│       ├── parser/
+│       │   ├── OfxParser.java            # Parser de arquivos OFX (SGML/XML)
+│       │   └── CsvParser.java            # Parser de arquivos CSV
+│       ├── service/
+│       │   ├── ConciliacaoService.java   # Motor principal de conciliação
+│       │   └── LancamentoService.java
+│       ├── controller/
+│       │   ├── ConciliacaoController.java
+│       │   └── LancamentoController.java
+│       ├── dto/
+│       ├── repository/
+│       └── config/
 ├── frontend/
-│   └── dashboard.html                # Dashboard interativo
-├── docker-compose.yml                # PostgreSQL + API
-└── init.sql                          # Dados de exemplo
+│   └── dashboard.html
+├── docker-compose.yml
+├── init.sql
+└── README.md
 ```
 
-##  Como Rodar
+---
+
+## Algoritmo de Matching
+
+Para cada transação do extrato bancário importado:
+
+1. Busca match exato — mesmo valor, tipo e data com status PENDENTE no sistema
+2. Se não encontrar — repete a busca com tolerância de ±1 dia
+3. Se houver candidatos — escolhe o lançamento com data mais próxima
+4. Se conciliado — ambos os registros são marcados como CONCILIADO e vinculados entre si
+5. Se sem match — transação do extrato marcada como DIVERGENTE
+
+Ao final, lançamentos que ainda estão PENDENTE são os que não apareceram no extrato.
+
+A tolerância de dias é configurável em `ConciliacaoService.java`:
+
+```java
+private static final int TOLERANCIA_DIAS = 1;
+```
+
+---
+
+## Tecnologias
+
+| Camada | Tecnologia |
+|--------|-----------|
+| Linguagem | Java 17 |
+| Framework | Spring Boot 3.2 |
+| Banco de dados | PostgreSQL 15 |
+| ORM | Spring Data JPA / Hibernate |
+| Parse CSV | Apache Commons CSV |
+| Parse Excel | Apache POI |
+| Documentação | SpringDoc OpenAPI (Swagger) |
+| Testes | JUnit 5 + Spring Boot Test |
+| Containerização | Docker + Docker Compose |
+
+---
+
+## Como Rodar
 
 ### Pré-requisitos
+
 - Java 17+
 - Maven 3.9+
-- Docker + Docker Compose (para PostgreSQL)
+- Docker e Docker Compose
 
-### 1. Subir o banco de dados
+### 1. Clonar o repositório
+
+```bash
+git clone https://github.com/seu-usuario/bank-reconciliation.git
+cd bank-reconciliation
+```
+
+### 2. Subir o banco de dados
+
 ```bash
 docker-compose up postgres -d
 ```
 
-### 2. Rodar a API
+### 3. Rodar a API
+
 ```bash
 cd backend
 mvn spring-boot:run
 ```
 
-A API sobe em `http://localhost:8080/api`
+A API estará disponível em `http://localhost:8080/api`
 
-### 3. Rodar tudo com Docker
+### Rodar tudo com Docker
+
 ```bash
 docker-compose up --build
 ```
 
-##  Endpoints da API
+---
 
-### Conciliação
+## Endpoints
+
+### Conciliacao
+
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `POST` | `/api/conciliacao/importar` | Upload do extrato (OFX/CSV) |
+| `POST` | `/api/conciliacao/importar` | Upload do extrato (OFX ou CSV) |
 | `GET` | `/api/conciliacao/historico` | Lista todas as importações |
 | `GET` | `/api/conciliacao/status` | Health check |
 
-### Lançamentos
+### Lancamentos
+
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| `POST` | `/api/lancamentos` | Criar lançamento |
+| `POST` | `/api/lancamentos` | Registrar lançamento |
 | `GET` | `/api/lancamentos` | Listar lançamentos |
 | `GET` | `/api/lancamentos?status=PENDENTE` | Filtrar por status |
 | `DELETE` | `/api/lancamentos/{id}` | Excluir lançamento |
-| `GET` | `/api/lancamentos/dashboard/stats` | Estatísticas |
+| `GET` | `/api/lancamentos/dashboard/stats` | Estatísticas gerais |
 
-### Swagger UI
-Acesse `http://localhost:8080/api/swagger-ui` para a documentação interativa.
+Documentação interativa disponível em `http://localhost:8080/api/swagger-ui`
 
-## 📄 Formato dos Arquivos
+---
+
+## Formato dos Arquivos
 
 ### CSV
+
 ```csv
 Data,Descricao,Valor,Tipo
 2024-01-15,Pagamento Fornecedor ABC,-1500.00,DEBITO
 2024-01-16,Recebimento Cliente XYZ,3200.00,CREDITO
 ```
 
-**Colunas aceitas:**
-- **Data**: `data`, `date`, `data_transacao` — Formatos: `yyyy-MM-dd`, `dd/MM/yyyy`
-- **Descrição**: `descricao`, `description`, `historico`, `memo`
-- **Valor**: `valor`, `value`, `amount` — Negativo = débito (alternativo ao campo Tipo)
-- **Tipo**: `tipo`, `type` — `DEBITO` ou `CREDITO` (opcional se valor tiver sinal)
+Colunas aceitas:
+
+- **Data** — `data`, `date`, `data_transacao`. Formatos: `yyyy-MM-dd` ou `dd/MM/yyyy`
+- **Descricao** — `descricao`, `description`, `historico`, `memo`
+- **Valor** — `valor`, `value`, `amount`. Valor negativo é interpretado como débito
+- **Tipo** — `tipo`, `type`. Aceita `DEBITO` ou `CREDITO` (opcional se o valor tiver sinal)
 
 ### OFX
-Formato padrão SGML/OFX usado pelos bancos brasileiros. O parser extrai as tags `<STMTTRN>` automaticamente.
+
+Formato SGML/OFX padrão dos bancos brasileiros. O parser extrai automaticamente as tags `<STMTTRN>`.
 
 ```xml
 <STMTTRN>
@@ -107,39 +190,25 @@ Formato padrão SGML/OFX usado pelos bancos brasileiros. O parser extrai as tags
 </STMTTRN>
 ```
 
-##  Algoritmo de Matching
+---
 
-```
-Para cada transação do extrato:
-  1. Busca MATCH EXATO: valor = valor AND tipo = tipo AND data = data (PENDENTE)
-  2. Se não achar → Busca com TOLERÂNCIA ±1 dia
-  3. Se encontrar candidatos → escolhe o de data mais próxima
-  4. Se conciliado → ambos marcados como CONCILIADO, IDs vinculados
-  5. Se sem match → extrato marcado como DIVERGENTE
-  
-Ao final → lançamentos ainda PENDENTE = não encontrados no extrato
-```
-
-### Tolerância de data
-Configurável em `ConciliacaoService.java`:
-```java
-private static final int TOLERANCIA_DIAS = 1; // padrão: ±1 dia
-```
-
-##  Testes
+## Testes
 
 ```bash
 cd backend
 mvn test
 ```
 
-Os testes cobrem:
--  Match exato de data e valor
--  Divergência quando não há correspondência
--  Múltiplas transações com pendentes
--  Lançamentos pendentes sem match
+Os testes de integração cobrem:
 
-##  Variáveis de Ambiente
+- Match exato de data e valor
+- Transação sem correspondência marcada como divergente
+- Multiplas transacoes com lançamentos pendentes
+- Calculo correto do percentual de conciliacao
+
+---
+
+## Variaveis de Ambiente
 
 ```env
 SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/bank_reconciliation
@@ -147,10 +216,8 @@ SPRING_DATASOURCE_USERNAME=postgres
 SPRING_DATASOURCE_PASSWORD=postgres
 ```
 
-##  Dashboard
+---
 
-Abra `frontend/dashboard.html` no navegador para o dashboard interativo que permite:
-- Registrar lançamentos financeiros
-- Importar extratos OFX/CSV
-- Visualizar conciliados, divergentes e pendentes
-- Acompanhar taxa de conciliação em tempo real
+## Licença
+
+Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
