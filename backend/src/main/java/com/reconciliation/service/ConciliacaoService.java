@@ -161,8 +161,7 @@ public class ConciliacaoService {
                 extrato.getValor(),
                 extrato.getTipo(),
                 inicio,
-                fim,
-                extrato.getDataTransacao()
+                fim
         );
 
         // Pega o candidato com data mais próxima

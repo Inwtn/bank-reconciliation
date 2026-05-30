@@ -20,29 +20,21 @@ public interface LancamentoRepository extends JpaRepository<Lancamento, Long> {
 
     List<Lancamento> findByDataLancamentoBetween(LocalDate inicio, LocalDate fim);
 
-    /**
-     * Busca um lançamento pelo valor, data e tipo para conciliação.
-     * Usa uma tolerância de ±1 dia para datas.
-     */
     @Query("""
         SELECT l FROM Lancamento l
         WHERE l.valor = :valor
         AND l.tipo = :tipo
         AND l.dataLancamento BETWEEN :dataInicio AND :dataFim
         AND l.status = 'PENDENTE'
-        ORDER BY ABS(DATEDIFF(l.dataLancamento, :dataReferencia))
+        ORDER BY l.dataLancamento
         """)
     List<Lancamento> findMatchCandidates(
             @Param("valor") BigDecimal valor,
             @Param("tipo") TipoLancamento tipo,
             @Param("dataInicio") LocalDate dataInicio,
-            @Param("dataFim") LocalDate dataFim,
-            @Param("dataReferencia") LocalDate dataReferencia
+            @Param("dataFim") LocalDate dataFim
     );
 
-    /**
-     * Versão simplificada para match exato de data.
-     */
     @Query("""
         SELECT l FROM Lancamento l
         WHERE l.valor = :valor
