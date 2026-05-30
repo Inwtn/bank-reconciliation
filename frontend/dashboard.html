@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Motor de Conciliação Bancária</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117;
+    --bg2: #181c27;
+    --bg3: #1e2235;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8eaf0;
+    --text2: #8892a4;
+    --text3: #4a5568;
+    --green: #10b981;
+    --green-bg: rgba(16,185,129,0.12);
+    --red: #ef4444;
+    --red-bg: rgba(239,68,68,0.12);
+    --amber: #f59e0b;
+    --amber-bg: rgba(245,158,11,0.12);
+    --blue: #3b82f6;
+    --blue-bg: rgba(59,130,246,0.12);
+    --purple: #8b5cf6;
+  }
+  body {
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 13px;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg2);
+  }
+  .header-logo {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: white;
+  }
+  .header h1 { font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; font-weight: 600; color: var(--text); }
+  .header p { font-size: 11px; color: var(--text2); margin-top: 1px; }
+  .header-badge {
+    margin-left: auto;
+    background: var(--green-bg);
+    color: var(--green);
+    border: 1px solid rgba(16,185,129,0.3);
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 500;
+  }
+
+  .main { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 65px); }
+
+  /* Left panel */
+  .left-panel {
+    border-right: 1px solid var(--border);
+    background: var(--bg2);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .section { padding: 20px; border-bottom: 1px solid var(--border); }
+  .section-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    margin-bottom: 14px;
+    font-weight: 600;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: 10px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg);
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--blue);
+    background: var(--blue-bg);
+  }
+  .upload-icon { font-size: 32px; margin-bottom: 10px; }
+  .upload-title { font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: var(--text); margin-bottom: 4px; }
+  .upload-sub { font-size: 11px; color: var(--text2); }
+  .upload-formats {
+    display: flex; gap: 6px; justify-content: center; margin-top: 12px;
+  }
+  .format-badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 4px;
+    border: 1px solid var(--border2); color: var(--text2);
+  }
+  .file-input { display: none; }
+
+  /* Add lancamento form */
+  .form-row { display: flex; flex-direction: column; gap: 10px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-label { font-size: 10px; color: var(--text2); font-weight: 500; }
+  .form-input, .form-select {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--blue); }
+  .form-select option { background: var(--bg3); }
+  .btn {
+    background: var(--blue);
+    color: white;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .btn:hover { background: #2563eb; }
+  .btn:active { transform: scale(0.98); }
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 11px;
+    width: auto;
+    border-radius: 5px;
+  }
+  .btn-danger { background: var(--red); }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { background: var(--bg3); color: var(--text); }
+
+  /* Right panel */
+  .right-panel {
+    overflow-y: auto;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .stat-card {
+    padding: 16px 20px;
+    border-right: 1px solid var(--border);
+  }
+  .stat-card:last-child { border-right: none; }
+  .stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .stat-value { font-family: 'IBM Plex Sans', sans-serif; font-size: 24px; font-weight: 600; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.amber { color: var(--amber); }
+  .stat-value.blue { color: var(--blue); }
+  .stat-sub { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    padding: 0 20px;
+  }
+  .tab {
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab-count {
+    background: var(--bg3);
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .tab.active .tab-count { background: var(--blue-bg); color: var(--blue); }
+
+  /* Table */
+  .table-container { padding: 20px; flex: 1; }
+  .table-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .table-title { font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 500; }
+  .table-actions { display: flex; gap: 8px; }
+
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    font-weight: 600;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .data-table tr:hover td { background: var(--bg2); }
+  .data-table tr:last-child td { border-bottom: none; }
+
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .status-badge.conciliado { background: var(--green-bg); color: var(--green); }
+  .status-badge.divergente { background: var(--red-bg); color: var(--red); }
+  .status-badge.pendente { background: var(--amber-bg); color: var(--amber); }
+
+  .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  .tipo-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 500;
+  }
+  .tipo-badge.debito { background: var(--red-bg); color: var(--red); }
+  .tipo-badge.credito { background: var(--green-bg); color: var(--green); }
+
+  .value-neg { color: var(--red); }
+  .value-pos { color: var(--green); }
+  .text-muted { color: var(--text2); }
+  .text-small { font-size: 11px; }
+
+  /* Progress bar */
+  .progress-wrap { margin: 16px 0; }
+  .progress-label {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--text2); margin-bottom: 6px;
+  }
+  .progress-bar-bg {
+    height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%; background: linear-gradient(90deg, var(--green), #34d399);
+    border-radius: 3px;
+    transition: width 0.8s ease;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text2);
+  }
+  .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+  .empty-title { font-family: 'IBM Plex Sans', sans-serif; font-size: 15px; color: var(--text); margin-bottom: 6px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px;
+    max-width: 300px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    z-index: 100;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { border-color: rgba(16,185,129,0.4); }
+  .toast.error { border-color: rgba(239,68,68,0.4); }
+
+  /* Processing overlay */
+  .processing {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(15,17,23,0.85);
+    z-index: 50;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+  }
+  .processing.show { display: flex; }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border2);
+    border-top-color: var(--blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .match-arrow {
+    color: var(--green);
+    font-size: 16px;
+    display: inline-block;
+    margin: 0 4px;
+  }
+  .linked { color: var(--text2); font-size: 11px; }
+
+  .days-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .days-badge.high { background: var(--red-bg); color: var(--red); }
+  .days-badge.mid { background: var(--amber-bg); color: var(--amber); }
+  .days-badge.low { background: var(--green-bg); color: var(--green); }
+
+  /* Lancamentos list in left panel */
+  .lancamento-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+  }
+  .lancamento-item:last-child { border-bottom: none; }
+  .lancamento-desc { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .lancamento-val { font-size: 12px; font-weight: 500; white-space: nowrap; }
+
+  .filter-select {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .conciliacao-summary {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .summary-row {
+    display: flex; justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .summary-row:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">⚡</div>
+  <div>
+    <h1>Motor de Conciliação Bancária</h1>
+    <p>Validador automático de fluxo de caixa</p>
+  </div>
+  <div class="header-badge">● SISTEMA ATIVO</div>
+</div>
+
+<div class="main">
+  <!-- Left Panel -->
+  <div class="left-panel">
+    <!-- Upload -->
+    <div class="section">
+      <div class="section-label">📄 Importar Extrato</div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">🏦</div>
+        <div class="upload-title">Arraste o arquivo ou clique</div>
+        <div class="upload-sub">Extrato bancário para conciliação</div>
+        <div class="upload-formats">
+          <span class="format-badge">OFX</span>
+          <span class="format-badge">CSV</span>
+          <span class="format-badge">XLSX</span>
+        </div>
+      </div>
+      <input type="file" class="file-input" id="fileInput" accept=".ofx,.csv,.xlsx,.xls">
+      <div id="fileInfo" style="display:none; margin-top:10px; padding:10px; background:var(--bg); border:1px solid var(--border2); border-radius:6px;">
+        <div style="font-size:11px; color:var(--text2);" id="fileInfoText"></div>
+        <button class="btn" style="margin-top:10px" onclick="processarExtrato()">
+          ⚡ Executar Conciliação
+        </button>
+      </div>
+    </div>
+
+    <!-- Add Lancamento -->
+    <div class="section">
+      <div class="section-label">➕ Novo Lançamento</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data</label>
+          <input type="date" class="form-input" id="fData">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valor (R$)</label>
+          <input type="number" class="form-input" id="fValor" placeholder="0.00" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select class="form-select" id="fTipo">
+            <option value="DEBITO">💸 DÉBITO (Saída)</option>
+            <option value="CREDITO">💰 CRÉDITO (Entrada)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descrição</label>
+          <input type="text" class="form-input" id="fDesc" placeholder="Fornecedor, serviço...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Documento (NF, boleto...)</label>
+          <input type="text" class="form-input" id="fDoc" placeholder="NF-001">
+        </div>
+        <button class="btn" onclick="adicionarLancamento()">
+          + Registrar Lançamento
+        </button>
+      </div>
+    </div>
+
+    <!-- Lancamentos list -->
+    <div class="section" style="flex:1">
+      <div class="section-label" style="display:flex;align-items:center;justify-content:space-between">
+        📋 Lançamentos Registrados
+        <span id="lancamentosCount" style="color:var(--text2);font-size:11px"></span>
+      </div>
+      <div id="lancamentosList" style="max-height:300px;overflow-y:auto">
+        <div class="empty-state" style="padding:20px">
+          <div style="font-size:24px;opacity:0.4">📋</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:8px">Nenhum lançamento registrado</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-label">Total Extrato</div>
+        <div class="stat-value blue" id="statTotal">—</div>
+        <div class="stat-sub" id="statTotalVal">Aguardando importação</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">✅ Conciliados</div>
+        <div class="stat-value green" id="statConciliados">—</div>
+        <div class="stat-sub" id="statConciliadosVal">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">❌ Divergentes</div>
+        <div class="stat-value red" id="statDivergentes">—</div>
+        <div class="stat-sub" id="statDivergentesVal">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">⏳ Pendentes no Sistema</div>
+        <div class="stat-value amber" id="statPendentes">—</div>
+        <div class="stat-sub">Sem match no extrato</div>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div id="progressSection" style="display:none; padding:16px 20px; background:var(--bg2); border-bottom:1px solid var(--border)">
+      <div class="progress-wrap" style="margin:0">
+        <div class="progress-label">
+          <span>Taxa de Conciliação</span>
+          <span id="progressPct" style="color:var(--green);font-weight:600">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar" id="progressBar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('conciliados')">
+        ✅ Conciliados <span class="tab-count" id="countConciliados">0</span>
+      </div>
+      <div class="tab" onclick="switchTab('divergentes')">
+        ❌ Divergentes <span class="tab-count" id="countDivergentes">0</span>
+      </div>
+      <div class="tab" onclick="switchTab('pendentes')">
+        ⏳ Pendentes <span class="tab-count" id="countPendentes">0</span>
+      </div>
+      <div class="tab" onclick="switchTab('historico')">
+        📜 Histórico
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    <div class="table-container" id="tableContainer">
+      <div class="empty-state">
+        <div class="empty-icon">⚡</div>
+        <div class="empty-title">Motor pronto para conciliar</div>
+        <div style="font-size:12px; margin-top:8px; line-height:1.7">
+          1. Adicione os lançamentos (contas a pagar/receber)<br>
+          2. Importe o extrato bancário (OFX ou CSV)<br>
+          3. O motor encontra os matches automaticamente
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Processing overlay -->
+<div class="processing" id="processingOverlay">
+  <div class="spinner"></div>
+  <div style="font-family:'IBM Plex Sans',sans-serif; color:var(--text2); font-size:13px" id="processingMsg">Executando motor de conciliação...</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span id="toastIcon"></span>
+  <span id="toastMsg"></span>
+</div>
+
+<script>
+// Estado da aplicação
+const state = {
+  lancamentos: [],
+  resultadoConciliacao: null,
+  activeTab: 'conciliados',
+  selectedFile: null,
+  nextId: 1
+};
+
+// Format currency
+const fmt = v => 'R$ ' + parseFloat(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtDate = d => {
+  if (!d) return '—';
+  return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
+};
+
+// Toast
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+  document.getElementById('toastIcon').textContent = icon;
+  document.getElementById('toastMsg').textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3500);
+}
+
+// Drag and drop
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault();
+  zone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const allowed = ['ofx', 'csv', 'xlsx', 'xls'];
+  if (!allowed.includes(ext)) {
+    showToast('Formato não suportado. Use OFX, CSV ou XLSX.', 'error');
+    return;
+  }
+  state.selectedFile = file;
+  const size = (file.size / 1024).toFixed(1);
+  document.getElementById('fileInfoText').innerHTML =
+    `📄 <strong>${file.name}</strong><br>
+     <span style="color:var(--text2)">${size} KB · ${ext.toUpperCase()}</span>`;
+  document.getElementById('fileInfo').style.display = 'block';
+  zone.style.borderColor = 'var(--blue)';
+}
+
+// Adicionar lançamento
+function adicionarLancamento() {
+  const data = document.getElementById('fData').value;
+  const valor = parseFloat(document.getElementById('fValor').value);
+  const tipo = document.getElementById('fTipo').value;
+  const desc = document.getElementById('fDesc').value.trim();
+  const doc = document.getElementById('fDoc').value.trim();
+
+  if (!data || !valor || valor <= 0 || !desc) {
+    showToast('Preencha data, valor e descrição.', 'error');
+    return;
+  }
+
+  const lancamento = {
+    id: state.nextId++,
+    dataLancamento: data,
+    valor,
+    tipo,
+    descricao: desc,
+    documento: doc || null,
+    status: 'PENDENTE'
+  };
+
+  state.lancamentos.push(lancamento);
+  renderLancamentosList();
+  updateStats();
+
+  // Clear form
+  document.getElementById('fData').value = '';
+  document.getElementById('fValor').value = '';
+  document.getElementById('fDesc').value = '';
+  document.getElementById('fDoc').value = '';
+
+  showToast(`Lançamento registrado: ${fmt(valor)}`);
+}
+
+function deleteLancamento(id) {
+  state.lancamentos = state.lancamentos.filter(l => l.id !== id);
+  renderLancamentosList();
+  updateStats();
+}
+
+function renderLancamentosList() {
+  const container = document.getElementById('lancamentosList');
+  document.getElementById('lancamentosCount').textContent = `(${state.lancamentos.length})`;
+
+  if (state.lancamentos.length === 0) {
+    container.innerHTML = `<div class="empty-state" style="padding:20px">
+      <div style="font-size:24px;opacity:0.4">📋</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:8px">Nenhum lançamento registrado</div>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = state.lancamentos.map(l => `
+    <div class="lancamento-item">
+      <div style="flex:1;min-width:0">
+        <div class="lancamento-desc">${l.descricao}</div>
+        <div style="font-size:10px;color:var(--text2)">${fmtDate(l.dataLancamento)} · ${l.tipo === 'DEBITO' ? '↓ Débito' : '↑ Crédito'}</div>
+      </div>
+      <div class="lancamento-val ${l.tipo === 'DEBITO' ? 'value-neg' : 'value-pos'}">
+        ${l.tipo === 'DEBITO' ? '-' : '+'}${fmt(l.valor)}
+      </div>
+      <button onclick="deleteLancamento(${l.id})" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:4px;font-size:16px;line-height:1" title="Remover">×</button>
+    </div>
+  `).join('');
+}
+
+// Processamento de conciliação (simulação do motor)
+function processarExtrato() {
+  if (!state.selectedFile) {
+    showToast('Selecione um arquivo primeiro.', 'error');
+    return;
+  }
+
+  const overlay = document.getElementById('processingOverlay');
+  overlay.classList.add('show');
+
+  const msgs = [
+    'Fazendo parse do arquivo bancário...',
+    'Carregando transações do extrato...',
+    'Executando algoritmo de matching...',
+    'Cruzando dados com lançamentos...',
+    'Identificando divergências...',
+    'Gerando relatório de conciliação...'
+  ];
+
+  let i = 0;
+  const msgEl = document.getElementById('processingMsg');
+  const interval = setInterval(() => {
+    if (i < msgs.length) {
+      msgEl.textContent = msgs[i++];
+    }
+  }, 400);
+
+  // Lê o CSV/OFX e faz matching local (simulação do backend)
+  const reader = new FileReader();
+  reader.onload = e => {
+    setTimeout(() => {
+      clearInterval(interval);
+      const content = e.target.result;
+      const transacoes = parsearArquivo(content, state.selectedFile.name);
+      const resultado = executarConciliacao(transacoes);
+      state.resultadoConciliacao = resultado;
+      overlay.classList.remove('show');
+      renderResultado(resultado);
+      showToast(`Conciliação concluída! ${resultado.totalConciliados} matches encontrados.`);
+    }, 2600);
+  };
+  reader.readAsText(state.selectedFile, 'UTF-8');
+}
+
+// Parser CSV local
+function parsearArquivo(content, filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  const transacoes = [];
+
+  if (ext === 'ofx') {
+    // Parser OFX simplificado
+    const blocos = content.match(/<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi) || [];
+    blocos.forEach((bloco, idx) => {
+      const get = (tag) => {
+        const m = bloco.match(new RegExp(`<${tag}>(.*?)<`, 'i'));
+        return m ? m[1].trim() : null;
+      };
+      const valorStr = get('TRNAMT');
+      const dataStr = get('DTPOSTED');
+      if (!valorStr || !dataStr) return;
+      const valor = parseFloat(valorStr);
+      const data = dataStr.substring(0,4) + '-' + dataStr.substring(4,6) + '-' + dataStr.substring(6,8);
+      transacoes.push({
+        id: idx + 1,
+        dataTransacao: data,
+        valor: Math.abs(valor),
+        tipo: valor < 0 ? 'DEBITO' : 'CREDITO',
+        descricao: get('MEMO') || get('NAME') || 'Sem descrição',
+        idTransacaoBanco: get('FITID') || `OFX-${idx+1}`
+      });
+    });
+  } else {
+    // Parser CSV
+    const lines = content.trim().split('\n').filter(l => l.trim());
+    if (lines.length < 2) return transacoes;
+    const header = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+    const getIdx = (...names) => {
+      for (const n of names) { const i = header.indexOf(n); if (i >= 0) return i; }
+      return -1;
+    };
+    const idxData = getIdx('data', 'date', 'data_transacao');
+    const idxValor = getIdx('valor', 'value', 'amount');
+    const idxDesc = getIdx('descricao', 'descrição', 'description', 'historico', 'memo');
+    const idxTipo = getIdx('tipo', 'type', 'operacao');
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',').map(c => c.trim().replace(/"/g,''));
+      if (cols.length < 2) continue;
+      const dataStr = idxData >= 0 ? cols[idxData] : '';
+      const valorStr = idxValor >= 0 ? cols[idxValor] : '0';
+      if (!dataStr || !valorStr) continue;
+      let valor = parseFloat(valorStr.replace(/[R$\s.]/g,'').replace(',','.'));
+      if (isNaN(valor)) continue;
+      let data = dataStr;
+      // Normaliza dd/MM/yyyy -> yyyy-MM-dd
+      if (data.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+        const [d,m,y] = data.split('/');
+        data = `${y}-${m}-${d}`;
+      }
+      const tipoStr = idxTipo >= 0 ? cols[idxTipo] : '';
+      let tipo;
+      if (tipoStr) {
+        tipo = tipoStr.toUpperCase().includes('DEB') ? 'DEBITO' : 'CREDITO';
+      } else {
+        tipo = valor < 0 ? 'DEBITO' : 'CREDITO';
+      }
+      transacoes.push({
+        id: i,
+        dataTransacao: data,
+        valor: Math.abs(valor),
+        tipo,
+        descricao: idxDesc >= 0 ? cols[idxDesc] : 'Sem descrição',
+        idTransacaoBanco: `CSV-${i}`
+      });
+    }
+  }
+  return transacoes;
+}
+
+// Motor de conciliação local (simula o backend Java)
+function executarConciliacao(transacoes) {
+  const conciliados = [];
+  const divergentes = [];
+  const lancamentosCopia = state.lancamentos.map(l => ({...l, matched: false}));
+
+  // Reset status
+  lancamentosCopia.forEach(l => { l.status = 'PENDENTE'; l.matched = false; });
+
+  for (const extrato of transacoes) {
+    let melhorMatch = null;
+    let melhorDias = Infinity;
+
+    for (const lanc of lancamentosCopia) {
+      if (lanc.matched) continue;
+      if (lanc.tipo !== extrato.tipo) continue;
+      const diff = Math.abs(lanc.valor - extrato.valor);
+      if (diff > 0.01) continue; // tolerância de centavo
+
+      // Calcula diferença de dias
+      const d1 = new Date(extrato.dataTransacao);
+      const d2 = new Date(lanc.dataLancamento);
+      const dias = Math.abs((d1 - d2) / 86400000);
+
+      if (dias <= 1 && dias < melhorDias) { // tolerância ±1 dia
+        melhorMatch = lanc;
+        melhorDias = dias;
+      }
+    }
+
+    if (melhorMatch) {
+      melhorMatch.matched = true;
+      melhorMatch.status = 'CONCILIADO';
+      conciliados.push({
+        extrato,
+        lancamento: melhorMatch,
+        diferenca: 0,
+        status: 'CONCILIADO'
+      });
+    } else {
+      divergentes.push({ extrato, status: 'DIVERGENTE' });
+    }
+  }
+
+  const pendentes = lancamentosCopia.filter(l => !l.matched);
+  pendentes.forEach(l => { l.status = 'PENDENTE'; });
+
+  // Atualiza estado local
+  state.lancamentos = lancamentosCopia;
+  renderLancamentosList();
+
+  const total = transacoes.length;
+  const pct = total > 0 ? Math.round((conciliados.length / total) * 10000) / 100 : 0;
+
+  const valorTotal = transacoes.reduce((s, t) => s + t.valor, 0);
+  const valorConciliado = conciliados.reduce((s, c) => s + c.extrato.valor, 0);
+  const valorDivergente = divergentes.reduce((s, d) => s + d.extrato.valor, 0);
+
+  return {
+    nomeArquivo: state.selectedFile.name,
+    totalRegistrosExtrato: total,
+    totalConciliados: conciliados.length,
+    totalDivergentes: divergentes.length,
+    totalPendentesNoSistema: pendentes.length,
+    valorTotalExtrato: valorTotal,
+    valorTotalConciliado: valorConciliado,
+    valorTotalDivergente: valorDivergente,
+    percentualConciliado: pct,
+    itensConciliados: conciliados,
+    itensDivergentes: divergentes,
+    lancamentosPendentes: pendentes
+  };
+}
+
+function renderResultado(r) {
+  // Stats
+  document.getElementById('statTotal').textContent = r.totalRegistrosExtrato;
+  document.getElementById('statTotalVal').textContent = fmt(r.valorTotalExtrato);
+  document.getElementById('statConciliados').textContent = r.totalConciliados;
+  document.getElementById('statConciliadosVal').textContent = fmt(r.valorTotalConciliado);
+  document.getElementById('statDivergentes').textContent = r.totalDivergentes;
+  document.getElementById('statDivergentesVal').textContent = fmt(r.valorTotalDivergente);
+  document.getElementById('statPendentes').textContent = r.totalPendentesNoSistema;
+
+  // Progress
+  document.getElementById('progressSection').style.display = 'block';
+  document.getElementById('progressPct').textContent = r.percentualConciliado + '%';
+  setTimeout(() => {
+    document.getElementById('progressBar').style.width = r.percentualConciliado + '%';
+  }, 100);
+
+  // Tab counts
+  document.getElementById('countConciliados').textContent = r.totalConciliados;
+  document.getElementById('countDivergentes').textContent = r.totalDivergentes;
+  document.getElementById('countPendentes').textContent = r.totalPendentesNoSistema;
+
+  renderTab('conciliados');
+}
+
+function updateStats() {
+  const total = state.lancamentos.length;
+  const pend = state.lancamentos.filter(l => l.status === 'PENDENTE').length;
+  if (!state.resultadoConciliacao) {
+    document.getElementById('statPendentes').textContent = pend || '—';
+  }
+}
+
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['conciliados','divergentes','pendentes','historico'][i] === tab);
+  });
+  renderTab(tab);
+}
+
+function renderTab(tab) {
+  const container = document.getElementById('tableContainer');
+  const r = state.resultadoConciliacao;
+
+  if (!r && tab !== 'historico') {
+    container.innerHTML = `<div class="empty-state">
+      <div class="empty-icon">⚡</div>
+      <div class="empty-title">Nenhuma conciliação executada</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:8px">Importe um extrato bancário para ver os resultados</div>
+    </div>`;
+    return;
+  }
+
+  if (tab === 'conciliados') renderConciliados(r);
+  else if (tab === 'divergentes') renderDivergentes(r);
+  else if (tab === 'pendentes') renderPendentes(r);
+  else renderHistorico();
+}
+
+function renderConciliados(r) {
+  const container = document.getElementById('tableContainer');
+  if (r.itensConciliados.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Nenhum item conciliado</div></div>`;
+    return;
+  }
+  container.innerHTML = `
+    <div class="conciliacao-summary">
+      <div class="summary-row">
+        <span style="color:var(--text2)">Arquivo processado</span>
+        <span>${r.nomeArquivo}</span>
+      </div>
+      <div class="summary-row">
+        <span style="color:var(--text2)">Taxa de conciliação</span>
+        <span style="color:var(--green);font-weight:600">${r.percentualConciliado}%</span>
+      </div>
+      <div class="summary-row">
+        <span style="color:var(--text2)">Valor conciliado</span>
+        <span class="value-pos">${fmt(r.valorTotalConciliado)}</span>
+      </div>
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Data Extrato</th>
+          <th>Descrição Extrato</th>
+          <th>Tipo</th>
+          <th>Valor</th>
+          <th>↔ Lançamento no Sistema</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${r.itensConciliados.map(item => `
+          <tr>
+            <td>${fmtDate(item.extrato.dataTransacao)}</td>
+            <td style="max-width:180px">
+              <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.extrato.descricao}</div>
+              <div class="text-muted text-small">${item.extrato.idTransacaoBanco}</div>
+            </td>
+            <td><span class="tipo-badge ${item.extrato.tipo.toLowerCase()}">${item.extrato.tipo}</span></td>
+            <td class="${item.extrato.tipo === 'DEBITO' ? 'value-neg' : 'value-pos'}" style="font-weight:500">${fmt(item.extrato.valor)}</td>
+            <td>
+              ${item.lancamento ? `
+                <div style="font-size:12px">${item.lancamento.descricao}</div>
+                <div class="text-muted text-small">${fmtDate(item.lancamento.dataLancamento)} ${item.lancamento.documento ? '· ' + item.lancamento.documento : ''}</div>
+              ` : '<span class="text-muted">—</span>'}
+            </td>
+            <td><span class="status-badge conciliado"><span class="badge-dot"></span> CONCILIADO</span></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderDivergentes(r) {
+  const container = document.getElementById('tableContainer');
+  if (r.itensDivergentes.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-title">Nenhuma divergência encontrada!</div><div style="font-size:12px;color:var(--text2);margin-top:8px">Todas as transações foram conciliadas com sucesso.</div></div>`;
+    return;
+  }
+  container.innerHTML = `
+    <div class="conciliacao-summary" style="border-color:rgba(239,68,68,0.3)">
+      <div class="summary-row">
+        <span style="color:var(--text2)">Total de divergências</span>
+        <span style="color:var(--red);font-weight:600">${r.itensDivergentes.length} transações</span>
+      </div>
+      <div class="summary-row">
+        <span style="color:var(--text2)">Valor em divergência</span>
+        <span class="value-neg">${fmt(r.valorTotalDivergente)}</span>
+      </div>
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Descrição</th>
+          <th>ID Banco</th>
+          <th>Tipo</th>
+          <th>Valor</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${r.itensDivergentes.map(item => `
+          <tr>
+            <td>${fmtDate(item.extrato.dataTransacao)}</td>
+            <td style="max-width:200px">
+              <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${item.extrato.descricao}</div>
+            </td>
+            <td class="text-muted text-small">${item.extrato.idTransacaoBanco}</td>
+            <td><span class="tipo-badge ${item.extrato.tipo.toLowerCase()}">${item.extrato.tipo}</span></td>
+            <td class="${item.extrato.tipo === 'DEBITO' ? 'value-neg' : 'value-pos'}" style="font-weight:500">${fmt(item.extrato.valor)}</td>
+            <td><span class="status-badge divergente"><span class="badge-dot"></span> DIVERGENTE</span></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderPendentes(r) {
+  const container = document.getElementById('tableContainer');
+  if (r.lancamentosPendentes.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-title">Nenhum lançamento pendente!</div></div>`;
+    return;
+  }
+  container.innerHTML = `
+    <div class="conciliacao-summary" style="border-color:rgba(245,158,11,0.3)">
+      <div class="summary-row">
+        <span style="color:var(--text2)">Lançamentos sem match no extrato</span>
+        <span style="color:var(--amber);font-weight:600">${r.lancamentosPendentes.length} lançamentos</span>
+      </div>
+    </div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Data Prevista</th>
+          <th>Descrição</th>
+          <th>Documento</th>
+          <th>Tipo</th>
+          <th>Valor</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${r.lancamentosPendentes.map(lanc => {
+          const diasAberto = Math.floor((new Date() - new Date(lanc.dataLancamento + 'T00:00:00')) / 86400000);
+          const diasClass = diasAberto > 30 ? 'high' : diasAberto > 7 ? 'mid' : 'low';
+          return `
+            <tr>
+              <td>
+                ${fmtDate(lanc.dataLancamento)}
+                <span class="days-badge ${diasClass}">${diasAberto}d</span>
+              </td>
+              <td style="max-width:200px">
+                <div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lanc.descricao}</div>
+              </td>
+              <td class="text-muted text-small">${lanc.documento || '—'}</td>
+              <td><span class="tipo-badge ${lanc.tipo.toLowerCase()}">${lanc.tipo}</span></td>
+              <td class="${lanc.tipo === 'DEBITO' ? 'value-neg' : 'value-pos'}" style="font-weight:500">${fmt(lanc.valor)}</td>
+              <td><span class="status-badge pendente"><span class="badge-dot"></span> PENDENTE</span></td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderHistorico() {
+  const container = document.getElementById('tableContainer');
+  container.innerHTML = `
+    <div style="text-align:center;padding:40px;color:var(--text2)">
+      <div style="font-size:32px;opacity:0.5;margin-bottom:12px">📜</div>
+      <div style="font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--text);margin-bottom:8px">Histórico de Importações</div>
+      <div style="font-size:12px;line-height:1.8">
+        O histórico completo é persistido no banco PostgreSQL<br>
+        e acessível via <code style="background:var(--bg3);padding:2px 6px;border-radius:3px">GET /api/conciliacao/historico</code>
+      </div>
+      ${state.resultadoConciliacao ? `
+        <div style="margin-top:24px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:left;max-width:400px;margin-left:auto;margin-right:auto">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em">Última Importação</div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)"><span class="text-muted">Arquivo</span><span>${state.resultadoConciliacao.nomeArquivo}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)"><span class="text-muted">Registros</span><span>${state.resultadoConciliacao.totalRegistrosExtrato}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--border)"><span class="text-muted">Conciliados</span><span class="value-pos">${state.resultadoConciliacao.totalConciliados}</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0"><span class="text-muted">Divergentes</span><span class="value-neg">${state.resultadoConciliacao.totalDivergentes}</span></div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// Init: set today's date as default
+document.getElementById('fData').value = new Date().toISOString().split('T')[0];
+
+// Load demo data
+function carregarDemo() {
+  const hoje = new Date();
+  const d = (offset) => {
+    const dt = new Date(hoje);
+    dt.setDate(dt.getDate() + offset);
+    return dt.toISOString().split('T')[0];
+  };
+
+  const demos = [
+    { dataLancamento: d(-5), valor: 1500.00, tipo: 'DEBITO', descricao: 'Pagamento Fornecedor ABC', documento: 'NF-001' },
+    { dataLancamento: d(-3), valor: 3200.00, tipo: 'CREDITO', descricao: 'Recebimento Cliente XYZ', documento: 'NF-1042' },
+    { dataLancamento: d(-2), valor: 800.00, tipo: 'DEBITO', descricao: 'Aluguel Escritório', documento: 'ALUG-MAI' },
+    { dataLancamento: d(0), valor: 450.00, tipo: 'DEBITO', descricao: 'Conta de Energia', documento: 'CELESC-MAI' },
+    { dataLancamento: d(-1), valor: 5000.00, tipo: 'CREDITO', descricao: 'Projeto Alpha - Entrega', documento: 'CONT-001' },
+  ];
+
+  demos.forEach(l => {
+    state.lancamentos.push({ id: state.nextId++, ...l, status: 'PENDENTE' });
+  });
+  renderLancamentosList();
+  updateStats();
+  showToast('5 lançamentos de demonstração carregados!');
+}
+
+// Auto-load demo
+setTimeout(carregarDemo, 500);
+</script>
+</body>
+</html>

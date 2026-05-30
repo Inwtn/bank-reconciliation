@@ -1,0 +1,8 @@
+Data,Descricao,Valor,Tipo
+2024-01-15,Pagamento Fornecedor ABC Ltda,-1500.00,DEBITO
+2024-01-18,Recebimento NF 1042 - Cliente XYZ,3200.00,CREDITO
+2024-01-20,Tarifas Bancárias Jan/2024,-250.50,DEBITO
+2024-01-22,Pagamento Aluguel Escritório,-800.00,DEBITO
+2024-01-25,TED Recebido - Projeto Alpha,5000.00,CREDITO
+2024-01-28,Pagamento Conta de Luz,-450.00,DEBITO
+2024-01-30,IOF e Taxas Diversas,-38.75,DEBITO
