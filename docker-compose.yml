@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: bank_reconciliation
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
       - "5432:5432"
     volumes:
@@ -29,15 +29,17 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/bank_reconciliation
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      DB_URL: jdbc:postgresql://postgres:5432/bank_reconciliation
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?Set APP_ADMIN_PASSWORD in .env}
+      APP_VIEWER_PASSWORD: ${APP_VIEWER_PASSWORD:?Set APP_VIEWER_PASSWORD in .env}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/conciliacao/status || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/api/actuator/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

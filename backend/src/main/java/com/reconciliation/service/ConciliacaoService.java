@@ -7,6 +7,7 @@ import com.reconciliation.parser.OfxParser;
 import com.reconciliation.repository.ExtratoBancarioRepository;
 import com.reconciliation.repository.ImportacaoRepository;
 import com.reconciliation.repository.LancamentoRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Motor principal de conciliação bancária.
@@ -47,12 +49,14 @@ public class ConciliacaoService {
     private final ImportacaoRepository importacaoRepository;
     private final OfxParser ofxParser;
     private final CsvParser csvParser;
+    private final MeterRegistry meterRegistry;
 
     /**
      * Processa o upload do extrato bancário e executa a conciliação.
      */
     @Transactional
     public ConciliacaoResultadoDTO processarExtrato(MultipartFile file) throws Exception {
+        long startedAt = System.nanoTime();
         log.info("=== INICIANDO CONCILIAÇÃO BANCÁRIA ===");
         log.info("Arquivo: {} | Tamanho: {} bytes", file.getOriginalFilename(), file.getSize());
 
@@ -83,15 +87,24 @@ public class ConciliacaoService {
             importacaoRepository.save(importacao);
 
             // 6. Monta e retorna o DTO de resultado
-            return montarResultado(importacao, resultado);
+            ConciliacaoResultadoDTO resposta = montarResultado(importacao, resultado);
+            registrarMetrica("success", startedAt);
+            return resposta;
 
         } catch (Exception e) {
             log.error("Erro durante conciliação: {}", e.getMessage(), e);
+            registrarMetrica("failure", startedAt);
             importacao.setStatus(Importacao.StatusImportacao.ERRO);
             importacao.setMensagemErro(e.getMessage());
             importacaoRepository.save(importacao);
             throw e;
         }
+    }
+
+    private void registrarMetrica(String resultado, long startedAt) {
+        meterRegistry.counter("bank.reconciliation.imports", "result", resultado).increment();
+        meterRegistry.timer("bank.reconciliation.import.duration", "result", resultado)
+                .record(System.nanoTime() - startedAt, TimeUnit.NANOSECONDS);
     }
 
     /**

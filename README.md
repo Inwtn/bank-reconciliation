@@ -7,6 +7,8 @@
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
+[![Java CI](https://github.com/Inwtn/bank-reconciliation/actions/workflows/ci.yml/badge.svg)](https://github.com/Inwtn/bank-reconciliation/actions/workflows/ci.yml)
+
 Motor de conciliação bancária automática que cruza extratos bancários (OFX/CSV) com os lançamentos financeiros registrados no sistema, identificando o que foi pago, o que está pendente e onde há divergências.
 
 ---
@@ -25,6 +27,9 @@ Empresas que gerenciam fluxo de caixa precisam comparar manualmente o extrato ba
 - Dashboard web para visualização dos resultados
 - Histórico de todas as importações realizadas
 - API REST documentada com Swagger UI
+- Acesso por HTTP Basic com papéis `admin` (leitura e escrita) e `viewer` (somente leitura)
+- Health check público e métricas Prometheus acessíveis apenas ao administrador
+- Testes de integração com PostgreSQL real via Testcontainers e pipeline de CI
 
 ---
 
@@ -108,30 +113,46 @@ private static final int TOLERANCIA_DIAS = 1;
 ### 1. Clonar o repositório
 
 ```bash
-git clone https://github.com/seu-usuario/bank-reconciliation.git
+git clone https://github.com/Inwtn/bank-reconciliation.git
 cd bank-reconciliation
 ```
 
-### 2. Subir o banco de dados
+### 2. Configurar credenciais locais
+
+Copie `.env.example` para `.env` e substitua os três valores de exemplo por senhas diferentes. O arquivo `.env` é ignorado pelo Git. As credenciais não têm valores padrão na API.
+
+### 3. Subir a aplicação
 
 ```bash
-docker-compose up postgres -d
+docker compose up --build
 ```
 
-### 3. Rodar a API
+A API estará em `http://localhost:8080/api`. O banco só fica disponível depois do health check do PostgreSQL.
+
+Para executar a API fora do Docker, inicie o PostgreSQL e defina `APP_ADMIN_PASSWORD` e `APP_VIEWER_PASSWORD` no ambiente antes de usar Maven:
 
 ```bash
 cd backend
 mvn spring-boot:run
 ```
 
-A API estará disponível em `http://localhost:8080/api`
+`frontend/dashboard.html` é uma demonstração local do fluxo de conciliação. Ela simula os dados no navegador e ainda não consome a API autenticada; use o Swagger UI ou um cliente HTTP para testar a API real.
 
-### Rodar tudo com Docker
+### Autenticação e observabilidade
+
+- Usuário `viewer`: leitura de lançamentos, histórico e documentação da API.
+- Usuário `admin`: leitura, criação, importação, exclusão e acesso às métricas.
+- `GET /api/actuator/health`: público, usado pelo health check do container.
+- `GET /api/actuator/prometheus`: requer `admin`; inclui contadores e duração de importações por resultado.
+
+Exemplos:
 
 ```bash
-docker-compose up --build
+curl -u viewer:SUA_SENHA http://localhost:8080/api/lancamentos
+curl -u admin:SUA_SENHA http://localhost:8080/api/actuator/prometheus
 ```
+
+HTTP Basic deve ser usado sobre HTTPS fora do ambiente local. Para uma implantação pública, configure senhas pelo gerenciador de segredos da plataforma e não exponha o PostgreSQL diretamente.
 
 ---
 
@@ -155,7 +176,7 @@ docker-compose up --build
 | `DELETE` | `/api/lancamentos/{id}` | Excluir lançamento |
 | `GET` | `/api/lancamentos/dashboard/stats` | Estatísticas gerais |
 
-Documentação interativa disponível em `http://localhost:8080/api/swagger-ui`
+Documentação interativa disponível em `http://localhost:8080/api/swagger-ui`, com autenticação.
 
 ---
 
@@ -199,21 +220,27 @@ cd backend
 mvn test
 ```
 
-Os testes de integração cobrem:
+Os testes cobrem:
 
 - Match exato de data e valor
 - Transação sem correspondência marcada como divergente
 - Multiplas transacoes com lançamentos pendentes
 - Calculo correto do percentual de conciliacao
+- Autenticação, permissões de leitura e escrita e acesso às métricas
+- Persistência de uma conciliação em PostgreSQL 15 usando Testcontainers
+
+`mvn verify` é executado no GitHub Actions a cada pull request e push para `main`. O teste com PostgreSQL exige Docker disponível no ambiente de testes.
 
 ---
 
 ## Variaveis de Ambiente
 
 ```env
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/bank_reconciliation
-SPRING_DATASOURCE_USERNAME=postgres
-SPRING_DATASOURCE_PASSWORD=postgres
+DB_URL=jdbc:postgresql://localhost:5432/bank_reconciliation
+DB_USER=postgres
+DB_PASSWORD=uma-senha-local
+APP_ADMIN_PASSWORD=uma-senha-forte
+APP_VIEWER_PASSWORD=outra-senha-forte
 ```
 
 ---
