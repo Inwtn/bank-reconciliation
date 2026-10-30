@@ -17,17 +17,17 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class LancamentoRequestDTO {
 
-    @NotNull(message = "Data do lançamento é obrigatória")
+    @NotNull(message = "Entry date is required")
     private LocalDate dataLancamento;
 
-    @NotNull(message = "Valor é obrigatório")
-    @Positive(message = "Valor deve ser positivo")
+    @NotNull(message = "Amount is required")
+    @Positive(message = "Amount must be positive")
     private BigDecimal valor;
 
     private String descricao;
 
     private String documento;
 
-    @NotNull(message = "Tipo (DEBITO/CREDITO) é obrigatório")
+    @NotNull(message = "Type (DEBITO/CREDITO) is required")
     private TipoLancamento tipo;
 }

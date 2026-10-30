@@ -23,7 +23,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
             "timestamp", LocalDateTime.now().toString(),
             "status", HttpStatus.NOT_FOUND.value(),
-            "erro", "Recurso não encontrado"
+            "erro", "Resource not found"
         ));
     }
 
@@ -37,7 +37,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(Map.of(
             "timestamp", LocalDateTime.now().toString(),
             "status", HttpStatus.BAD_REQUEST.value(),
-            "erro", "Validação falhou",
+            "erro", "Validation failed",
             "campos", erros
         ));
     }
@@ -47,13 +47,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(Map.of(
             "timestamp", LocalDateTime.now().toString(),
             "status", 413,
-            "erro", "Arquivo muito grande. Tamanho máximo permitido: 10MB"
+            "erro", "File too large. Maximum allowed size: 10 MB"
         ));
     }
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntime(RuntimeException ex) {
-        log.error("Erro de negócio: {}", ex.getMessage());
+        log.error("Business error: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(Map.of(
             "timestamp", LocalDateTime.now().toString(),
             "status", HttpStatus.UNPROCESSABLE_ENTITY.value(),
@@ -63,11 +63,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
-        log.error("Erro inesperado: {}", ex.getMessage(), ex);
+        log.error("Unexpected error: {}", ex.getMessage(), ex);
         return ResponseEntity.internalServerError().body(Map.of(
             "timestamp", LocalDateTime.now().toString(),
             "status", 500,
-            "erro", "Erro interno do servidor. Contate o suporte."
+            "erro", "Internal server error. Contact support."
         ));
     }
 }

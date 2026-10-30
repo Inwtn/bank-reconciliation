@@ -20,19 +20,19 @@ import java.util.Map;
 @RestController
 @RequestMapping("/conciliacao")
 @RequiredArgsConstructor
-@Tag(name = "Conciliação Bancária", description = "Motor de conciliação de extratos bancários")
+@Tag(name = "Bank reconciliation", description = "Import and reconcile bank statements")
 public class ConciliacaoController {
 
     private final ConciliacaoService conciliacaoService;
     private final ImportacaoRepository importacaoRepository;
 
     /**
-     * Endpoint principal: recebe o arquivo de extrato e executa a conciliação.
+     * Receive a bank statement and run the reconciliation engine.
      */
     @PostMapping(value = "/importar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
-        summary = "Importar extrato bancário",
-        description = "Faz upload de um arquivo OFX ou CSV e executa a conciliação automática com os lançamentos do sistema."
+        summary = "Import a bank statement",
+        description = "Upload an OFX or CSV file and reconcile it with internal financial entries."
     )
     public ResponseEntity<ConciliacaoResultadoDTO> importarExtrato(
             @RequestParam("arquivo") MultipartFile arquivo) {
@@ -42,34 +42,34 @@ public class ConciliacaoController {
         }
 
         String nomeArquivo = arquivo.getOriginalFilename();
-        log.info("Recebido arquivo para conciliação: {}", nomeArquivo);
+        log.info("Received statement for reconciliation: {}", nomeArquivo);
 
         try {
             ConciliacaoResultadoDTO resultado = conciliacaoService.processarExtrato(arquivo);
             return ResponseEntity.ok(resultado);
         } catch (IllegalArgumentException e) {
-            log.warn("Arquivo inválido: {}", e.getMessage());
+            log.warn("Invalid statement: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {
-            log.error("Erro ao processar extrato: {}", e.getMessage(), e);
+            log.error("Could not process statement: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }
 
     /**
-     * Lista o histórico de todas as importações realizadas.
+     * List every statement import.
      */
     @GetMapping("/historico")
-    @Operation(summary = "Histórico de importações")
+    @Operation(summary = "List import history")
     public ResponseEntity<List<Importacao>> listarHistorico() {
         return ResponseEntity.ok(importacaoRepository.findAllByOrderByDataImportacaoDesc());
     }
 
     /**
-     * Retorna o resultado de uma importação específica.
+     * Return one import record.
      */
     @GetMapping("/historico/{id}")
-    @Operation(summary = "Detalhes de uma importação")
+    @Operation(summary = "Get an import record")
     public ResponseEntity<Importacao> buscarImportacao(@PathVariable Long id) {
         return importacaoRepository.findById(id)
                 .map(ResponseEntity::ok)
@@ -77,13 +77,13 @@ public class ConciliacaoController {
     }
 
     /**
-     * Health check do sistema.
+     * Service status endpoint.
      */
     @GetMapping("/status")
     public ResponseEntity<Map<String, String>> status() {
         return ResponseEntity.ok(Map.of(
             "status", "UP",
-            "servico", "Motor de Conciliação Bancária",
+            "servico", "Bank Reconciliation Engine",
             "versao", "1.0.0"
         ));
     }

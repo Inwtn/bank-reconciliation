@@ -34,4 +34,23 @@ class CsvParserTest {
         assertThat(transactions.get(1).getTipo()).isEqualTo(TipoLancamento.DEBITO);
         assertThat(transactions.get(2).getTipo()).isEqualTo(TipoLancamento.CREDITO);
     }
+
+    @Test
+    void acceptsEnglishSampleHeadersAndTransactionTypes() throws Exception {
+        String csv = """
+                Date,Description,Amount,Type
+                2026-10-29,Supplier payment ABC,-1500.00,DEBIT
+                2026-10-29,Customer payment XYZ,3200.00,CREDIT
+                """;
+        var file = new MockMultipartFile("arquivo", "sample.csv", "text/csv",
+                csv.getBytes(StandardCharsets.UTF_8));
+
+        var transactions = parser.parse(file);
+
+        assertThat(transactions).hasSize(2);
+        assertThat(transactions.get(0).getTipo()).isEqualTo(TipoLancamento.DEBITO);
+        assertThat(transactions.get(0).getValor()).isEqualByComparingTo("1500.00");
+        assertThat(transactions.get(1).getTipo()).isEqualTo(TipoLancamento.CREDITO);
+        assertThat(transactions.get(1).getValor()).isEqualByComparingTo("3200.00");
+    }
 }

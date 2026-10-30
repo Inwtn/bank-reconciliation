@@ -25,24 +25,21 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Motor principal de conciliação bancária.
+ * Main bank reconciliation engine.
  *
- * Algoritmo de matching:
- * 1. Importa o extrato bancário (OFX ou CSV)
- * 2. Para cada transação do extrato, busca um lançamento no sistema com:
- *    - Mesmo valor (correspondência exata)
- *    - Mesmo tipo (débito/crédito)
- *    - Data igual ou próxima (tolerância configurável, padrão ±1 dia)
- * 3. Se encontrar match: marca ambos como CONCILIADO e vincula os registros
- * 4. Se não encontrar: marca o extrato como DIVERGENTE
- * 5. Lançamentos sem match ficam como PENDENTE
+ * Matching algorithm:
+ * 1. Import an OFX or CSV bank statement.
+ * 2. Match each statement transaction by exact amount, debit/credit type, and date.
+ * 3. If an exact-date match is absent, search within a one-day date tolerance.
+ * 4. Mark both sides of a match as reconciled; unmatched statement rows as divergent.
+ * 5. Leave unmatched internal entries pending.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ConciliacaoService {
 
-    private static final int TOLERANCIA_DIAS = 1; // Tolerância de data para match
+    private static final int TOLERANCIA_DIAS = 1; // Date tolerance for matching
 
     private final LancamentoRepository lancamentoRepository;
     private final ExtratoBancarioRepository extratoRepository;
@@ -54,14 +51,14 @@ public class ConciliacaoService {
     private final TransactionTemplate transactionTemplate;
 
     /**
-     * Processa o upload do extrato bancário e executa a conciliação.
+     * Process the uploaded statement and run reconciliation.
      */
     public ConciliacaoResultadoDTO processarExtrato(MultipartFile file) throws Exception {
         long startedAt = System.nanoTime();
-        log.info("=== INICIANDO CONCILIAÇÃO BANCÁRIA ===");
-        log.info("Arquivo: {} | Tamanho: {} bytes", file.getOriginalFilename(), file.getSize());
+        log.info("Starting bank reconciliation");
+        log.info("File: {} | Size: {} bytes", file.getOriginalFilename(), file.getSize());
 
-        // 1. Determina o formato e cria o registro de importação
+        // Detect the format and create an import record.
         Importacao.FormatoArquivo formato = detectarFormato(file);
         Importacao importacao = trackingService.criar(file.getOriginalFilename(), formato);
 
@@ -70,7 +67,7 @@ public class ConciliacaoService {
             List<ExtratoBancario> transacoesExtrato = parsearArquivo(file, formato);
 
             if (transacoesExtrato.isEmpty()) {
-                throw new IllegalArgumentException("Nenhuma transação encontrada no arquivo. Verifique o formato.");
+                throw new IllegalArgumentException("No transactions found in the file. Check its format.");
             }
 
             // Statement rows, matches and the completed status commit together.
@@ -80,7 +77,7 @@ public class ConciliacaoService {
             return resposta;
 
         } catch (Exception e) {
-            log.error("Erro durante conciliação: {}", e.getMessage(), e);
+            log.error("Reconciliation failed: {}", e.getMessage(), e);
             registrarMetrica("failure", startedAt);
             trackingService.marcarErro(importacao.getId(), e.getMessage());
             throw e;
@@ -108,24 +105,24 @@ public class ConciliacaoService {
     }
 
     /**
-     * Motor de conciliação: cruza dados do extrato com lançamentos do sistema.
+     * Match bank statement transactions with internal entries.
      */
     private ConciliacaoResultado executarConciliacao(List<ExtratoBancario> extratos) {
-        log.info("Executando motor de conciliação para {} transações do extrato", extratos.size());
+        log.info("Reconciling {} statement transactions", extratos.size());
 
         List<ExtratoBancario> conciliados = new ArrayList<>();
         List<ExtratoBancario> divergentes = new ArrayList<>();
 
         for (ExtratoBancario extrato : extratos) {
-            log.debug("Processando: {} | {} | {}", extrato.getDataTransacao(), extrato.getValor(), extrato.getTipo());
+            log.debug("Processing: {} | {} | {}", extrato.getDataTransacao(), extrato.getValor(), extrato.getTipo());
 
-            // Busca match: primeiro tenta data exata, depois com tolerância
+            // Try the exact date first, then the tolerance window.
             Optional<Lancamento> match = buscarMatch(extrato);
 
             if (match.isPresent()) {
-                // CONCILIADO: encontrou correspondência no sistema
+                // Match found in the internal records.
                 Lancamento lancamento = match.get();
-                log.debug("✅ MATCH encontrado: Extrato {} ↔ Lançamento {}", extrato.getId(), lancamento.getId());
+                log.debug("Match found: statement {} ↔ entry {}", extrato.getId(), lancamento.getId());
 
                 extrato.setStatusConciliacao(StatusConciliacao.CONCILIADO);
                 extrato.setIdLancamentoConciliado(lancamento.getId());
@@ -137,25 +134,23 @@ public class ConciliacaoService {
                 extratoRepository.save(extrato);
                 conciliados.add(extrato);
             } else {
-                // DIVERGENTE: transação no extrato sem correspondência no sistema
-                log.debug("❌ Sem match: {} | {} | {}", extrato.getDataTransacao(), extrato.getValor(), extrato.getTipo());
+                // Bank transaction without a corresponding internal entry.
+                log.debug("No match: {} | {} | {}", extrato.getDataTransacao(), extrato.getValor(), extrato.getTipo());
                 extrato.setStatusConciliacao(StatusConciliacao.DIVERGENTE);
                 extratoRepository.save(extrato);
                 divergentes.add(extrato);
             }
         }
 
-        log.info("Conciliação concluída: {} conciliados | {} divergentes", conciliados.size(), divergentes.size());
+        log.info("Reconciliation complete: {} matched | {} unmatched", conciliados.size(), divergentes.size());
         return new ConciliacaoResultado(conciliados, divergentes);
     }
 
     /**
-     * Estratégia de match com fallback:
-     * 1. Match exato (mesmo dia, mesmo valor, mesmo tipo)
-     * 2. Match com tolerância de ±N dias
+     * Match by exact date first, then within the date tolerance.
      */
     private Optional<Lancamento> buscarMatch(ExtratoBancario extrato) {
-        // Tentativa 1: match exato de data
+        // First attempt: exact date.
         Optional<Lancamento> matchExato = lancamentoRepository.findExactMatch(
                 extrato.getValor(),
                 extrato.getTipo(),
@@ -166,7 +161,7 @@ public class ConciliacaoService {
             return matchExato;
         }
 
-        // Tentativa 2: match com tolerância de dias
+        // Second attempt: nearby dates.
         LocalDate inicio = extrato.getDataTransacao().minusDays(TOLERANCIA_DIAS);
         LocalDate fim = extrato.getDataTransacao().plusDays(TOLERANCIA_DIAS);
 
@@ -177,7 +172,7 @@ public class ConciliacaoService {
                 fim
         );
 
-        // Pega o candidato com data mais próxima
+        // Choose the closest date.
         return candidatos.stream()
                 .min((a, b) -> {
                     long diasA = Math.abs(ChronoUnit.DAYS.between(a.getDataLancamento(), extrato.getDataTransacao()));
@@ -187,10 +182,10 @@ public class ConciliacaoService {
     }
 
     private ConciliacaoResultadoDTO montarResultado(Importacao importacao, ConciliacaoResultado resultado) {
-        // Busca lançamentos ainda pendentes no sistema
+        // Find internal entries that remain pending.
         List<Lancamento> lancamentosPendentes = lancamentoRepository.findByStatus(StatusConciliacao.PENDENTE);
 
-        // Calcula totalizadores
+        // Calculate totals.
         BigDecimal valorTotalExtrato = BigDecimal.ZERO;
         BigDecimal valorTotalConciliado = BigDecimal.ZERO;
         BigDecimal valorTotalDivergente = BigDecimal.ZERO;
@@ -198,7 +193,7 @@ public class ConciliacaoService {
         List<ConciliacaoResultadoDTO.ItemConciliacaoDTO> itensConciliados = new ArrayList<>();
         List<ConciliacaoResultadoDTO.ItemConciliacaoDTO> itensDivergentes = new ArrayList<>();
 
-        // Processa conciliados
+        // Build matched items.
         for (ExtratoBancario extrato : resultado.conciliados) {
             valorTotalExtrato = valorTotalExtrato.add(extrato.getValor());
             valorTotalConciliado = valorTotalConciliado.add(extrato.getValor());
@@ -220,7 +215,7 @@ public class ConciliacaoService {
                     .build());
         }
 
-        // Processa divergentes
+        // Build unmatched items.
         for (ExtratoBancario extrato : resultado.divergentes) {
             valorTotalExtrato = valorTotalExtrato.add(extrato.getValor());
             valorTotalDivergente = valorTotalDivergente.add(extrato.getValor());
@@ -235,7 +230,7 @@ public class ConciliacaoService {
                     .build());
         }
 
-        // Monta lista de pendentes
+        // Build pending items.
         List<ConciliacaoResultadoDTO.LancamentoPendenteDTO> pendentes = lancamentosPendentes.stream()
                 .map(l -> ConciliacaoResultadoDTO.LancamentoPendenteDTO.builder()
                         .id(l.getId())
@@ -275,29 +270,23 @@ public class ConciliacaoService {
         String nome = file.getOriginalFilename() != null
                 ? file.getOriginalFilename().toLowerCase()
                 : "";
-        String contentType = file.getContentType() != null
-                ? file.getContentType().toLowerCase()
-                : "";
-
-        if (nome.endsWith(".ofx") || contentType.contains("ofx")) {
+        if (nome.endsWith(".ofx")) {
             return Importacao.FormatoArquivo.OFX;
-        } else if (nome.endsWith(".xlsx") || nome.endsWith(".xls")) {
-            return Importacao.FormatoArquivo.XLSX;
-        } else {
-            return Importacao.FormatoArquivo.CSV; // padrão
         }
+        if (nome.endsWith(".csv")) return Importacao.FormatoArquivo.CSV;
+        throw new IllegalArgumentException("Unsupported file format. Upload an OFX or CSV file.");
     }
 
     private List<ExtratoBancario> parsearArquivo(MultipartFile file, Importacao.FormatoArquivo formato) throws Exception {
         return switch (formato) {
             case OFX -> ofxParser.parse(file);
             case CSV -> csvParser.parse(file);
-            case XLSX -> csvParser.parse(file); // XLSX pode ser exportado como CSV
+            case XLSX -> throw new IllegalArgumentException("XLSX is not supported. Export the statement as CSV.");
         };
     }
 
     /**
-     * Record interno para encapsular o resultado da conciliação.
+     * Internal record for matched and unmatched statement rows.
      */
     private record ConciliacaoResultado(
             List<ExtratoBancario> conciliados,

@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-// DTO de Lançamento
+// Financial entry DTO
 @Data
 @Builder
 @NoArgsConstructor

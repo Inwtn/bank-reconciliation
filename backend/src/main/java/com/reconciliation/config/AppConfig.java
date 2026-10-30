@@ -17,7 +17,7 @@ public class AppConfig {
     private String[] allowedOrigins;
 
     /**
-     * Configuração de CORS para permitir acesso do frontend.
+     * Allow the dashboard to call the API from its configured origin.
      */
     @Bean
     public WebMvcConfigurer corsConfigurer() {
@@ -35,25 +35,25 @@ public class AppConfig {
     }
 
     /**
-     * Configuração do Swagger/OpenAPI.
+     * Swagger/OpenAPI documentation.
      */
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Motor de Conciliação Bancária")
+                        .title("Bank Reconciliation Engine")
                         .version("1.0.0")
                         .description("""
-                            API REST para conciliação automática de extratos bancários.
+                            REST API for automatic bank statement reconciliation.
                             
-                            **Fluxo principal:**
-                            1. Registre seus lançamentos (contas a pagar/receber) via `POST /lancamentos`
-                            2. Faça upload do extrato bancário (OFX ou CSV) via `POST /conciliacao/importar`
-                            3. O motor cruza os dados e retorna o resultado com conciliados e divergentes
+                            **Main flow:**
+                            1. Create internal financial entries with `POST /lancamentos`.
+                            2. Upload an OFX or CSV bank statement with `POST /conciliacao/importar`.
+                            3. Review matched, unmatched, and pending records in the response.
                             """)
                         .contact(new Contact()
-                                .name("Equipe de Desenvolvimento")
-                                .email("dev@empresa.com.br"))
+                                .name("Isaac Almeida")
+                                .url("https://github.com/Inwtn/bank-reconciliation"))
                         .license(new License()
                                 .name("MIT")
                                 .url("https://opensource.org/licenses/MIT")));

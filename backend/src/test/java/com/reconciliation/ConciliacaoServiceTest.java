@@ -190,7 +190,7 @@ class ConciliacaoServiceTest {
         try {
             conciliacaoService.processarExtrato(arquivo);
         } catch (IllegalArgumentException e) {
-            assertThat(e.getMessage()).contains("Nenhuma transação encontrada");
+            assertThat(e.getMessage()).contains("No transactions found");
         }
 
         assertThat(importacaoRepository.findAll()).hasSize(1);
