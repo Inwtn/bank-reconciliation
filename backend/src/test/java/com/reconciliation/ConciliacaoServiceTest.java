@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -24,7 +23,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@Transactional
 @DisplayName("Testes de Integração - Motor de Conciliação")
 class ConciliacaoServiceTest {
 
@@ -194,6 +192,10 @@ class ConciliacaoServiceTest {
         } catch (IllegalArgumentException e) {
             assertThat(e.getMessage()).contains("Nenhuma transação encontrada");
         }
+
+        assertThat(importacaoRepository.findAll()).hasSize(1);
+        assertThat(importacaoRepository.findAll().get(0).getStatus())
+                .isEqualTo(com.reconciliation.model.Importacao.StatusImportacao.ERRO);
 
         // Lançamento ainda deve estar PENDENTE
         Lancamento lancamento = lancamentoRepository.findAll().get(0);

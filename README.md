@@ -26,6 +26,7 @@ Empresas que gerenciam fluxo de caixa precisam comparar manualmente o extrato ba
 - Classificação de cada transação como Conciliado, Divergente ou Pendente
 - Dashboard web para visualização dos resultados
 - Histórico de todas as importações realizadas
+- Histórico de falhas de importação persistido mesmo quando a conciliação é revertida
 - API REST documentada com Swagger UI
 - Acesso por HTTP Basic com papéis `admin` (leitura e escrita) e `viewer` (somente leitura)
 - Health check público e métricas Prometheus acessíveis apenas ao administrador
@@ -228,6 +229,7 @@ Os testes cobrem:
 - Calculo correto do percentual de conciliacao
 - Autenticação, permissões de leitura e escrita e acesso às métricas
 - Persistência de uma conciliação em PostgreSQL 15 usando Testcontainers
+- Registro de falha sem linhas de extrato parciais no PostgreSQL
 
 `mvn verify` é executado no GitHub Actions a cada pull request e push para `main`. O teste com PostgreSQL exige Docker disponível no ambiente de testes.
 

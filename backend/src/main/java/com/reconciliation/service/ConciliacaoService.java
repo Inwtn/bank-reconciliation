@@ -11,7 +11,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
@@ -50,11 +50,12 @@ public class ConciliacaoService {
     private final OfxParser ofxParser;
     private final CsvParser csvParser;
     private final MeterRegistry meterRegistry;
+    private final ImportacaoTrackingService trackingService;
+    private final TransactionTemplate transactionTemplate;
 
     /**
      * Processa o upload do extrato bancário e executa a conciliação.
      */
-    @Transactional
     public ConciliacaoResultadoDTO processarExtrato(MultipartFile file) throws Exception {
         long startedAt = System.nanoTime();
         log.info("=== INICIANDO CONCILIAÇÃO BANCÁRIA ===");
@@ -62,43 +63,42 @@ public class ConciliacaoService {
 
         // 1. Determina o formato e cria o registro de importação
         Importacao.FormatoArquivo formato = detectarFormato(file);
-        Importacao importacao = criarImportacao(file.getOriginalFilename(), formato);
+        Importacao importacao = trackingService.criar(file.getOriginalFilename(), formato);
 
         try {
-            // 2. Faz o parse do arquivo
+            // Parse before opening the reconciliation transaction.
             List<ExtratoBancario> transacoesExtrato = parsearArquivo(file, formato);
 
             if (transacoesExtrato.isEmpty()) {
                 throw new IllegalArgumentException("Nenhuma transação encontrada no arquivo. Verifique o formato.");
             }
 
-            // 3. Salva as transações do extrato vinculadas à importação
-            transacoesExtrato.forEach(t -> t.setIdImportacao(importacao.getId()));
-            List<ExtratoBancario> extratosSalvos = extratoRepository.saveAll(transacoesExtrato);
-
-            // 4. EXECUTA O MOTOR DE CONCILIAÇÃO (o coração do sistema)
-            ConciliacaoResultado resultado = executarConciliacao(extratosSalvos);
-
-            // 5. Atualiza a importação com os resultados
-            importacao.setTotalRegistros(extratosSalvos.size());
-            importacao.setTotalConciliados(resultado.conciliados.size());
-            importacao.setTotalDivergentes(resultado.divergentes.size());
-            importacao.setStatus(Importacao.StatusImportacao.CONCLUIDO);
-            importacaoRepository.save(importacao);
-
-            // 6. Monta e retorna o DTO de resultado
-            ConciliacaoResultadoDTO resposta = montarResultado(importacao, resultado);
+            // Statement rows, matches and the completed status commit together.
+            ConciliacaoResultadoDTO resposta = transactionTemplate.execute(status ->
+                    conciliarNoBanco(importacao.getId(), transacoesExtrato));
             registrarMetrica("success", startedAt);
             return resposta;
 
         } catch (Exception e) {
             log.error("Erro durante conciliação: {}", e.getMessage(), e);
             registrarMetrica("failure", startedAt);
-            importacao.setStatus(Importacao.StatusImportacao.ERRO);
-            importacao.setMensagemErro(e.getMessage());
-            importacaoRepository.save(importacao);
+            trackingService.marcarErro(importacao.getId(), e.getMessage());
             throw e;
         }
+    }
+
+    private ConciliacaoResultadoDTO conciliarNoBanco(Long importacaoId, List<ExtratoBancario> transacoes) {
+        Importacao importacao = importacaoRepository.findById(importacaoId).orElseThrow();
+        transacoes.forEach(t -> t.setIdImportacao(importacaoId));
+        List<ExtratoBancario> extratosSalvos = extratoRepository.saveAll(transacoes);
+        ConciliacaoResultado resultado = executarConciliacao(extratosSalvos);
+
+        importacao.setTotalRegistros(extratosSalvos.size());
+        importacao.setTotalConciliados(resultado.conciliados.size());
+        importacao.setTotalDivergentes(resultado.divergentes.size());
+        importacao.setStatus(Importacao.StatusImportacao.CONCLUIDO);
+        importacaoRepository.save(importacao);
+        return montarResultado(importacao, resultado);
     }
 
     private void registrarMetrica(String resultado, long startedAt) {
@@ -294,15 +294,6 @@ public class ConciliacaoService {
             case CSV -> csvParser.parse(file);
             case XLSX -> csvParser.parse(file); // XLSX pode ser exportado como CSV
         };
-    }
-
-    private Importacao criarImportacao(String nomeArquivo, Importacao.FormatoArquivo formato) {
-        Importacao importacao = Importacao.builder()
-                .nomeArquivo(nomeArquivo)
-                .formatoArquivo(formato)
-                .status(Importacao.StatusImportacao.PROCESSANDO)
-                .build();
-        return importacaoRepository.save(importacao);
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.reconciliation;
 
 import com.reconciliation.dto.LancamentoRequestDTO;
+import com.reconciliation.model.Importacao;
 import com.reconciliation.model.StatusConciliacao;
 import com.reconciliation.model.TipoLancamento;
 import com.reconciliation.repository.ExtratoBancarioRepository;
@@ -25,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -77,5 +79,19 @@ class PostgreSqlReconciliationTest {
                 .isEqualTo(entry.getId());
         assertThat(lancamentoRepository.findById(entry.getId()).orElseThrow().getStatus())
                 .isEqualTo(StatusConciliacao.CONCILIADO);
+    }
+
+    @Test
+    void persistsFailedImportWithoutPartialStatementRows() {
+        var file = new MockMultipartFile("arquivo", "vazio.csv", "text/csv",
+                "Data,Descricao,Valor,Tipo\n".getBytes(StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> conciliacaoService.processarExtrato(file))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(importacaoRepository.findAll()).hasSize(1);
+        assertThat(importacaoRepository.findAll().get(0).getStatus())
+                .isEqualTo(Importacao.StatusImportacao.ERRO);
+        assertThat(extratoRepository.count()).isZero();
     }
 }
