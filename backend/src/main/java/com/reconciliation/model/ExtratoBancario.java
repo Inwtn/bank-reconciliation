@@ -11,7 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Representa uma linha do extrato bancário importado (OFX ou CSV).
+ * One transaction from an imported OFX or CSV bank statement.
  */
 @Entity
 @Table(name = "extratos_bancarios")
@@ -35,7 +35,7 @@ public class ExtratoBancario {
     private String descricao;
 
     @Column(name = "id_transacao_banco", length = 100)
-    private String idTransacaoBanco; // FITID do OFX ou ID único do CSV
+    private String idTransacaoBanco; // OFX FITID or generated CSV transaction ID
 
     @Enumerated(EnumType.STRING)
     private TipoLancamento tipo; // DEBITO ou CREDITO
@@ -45,10 +45,10 @@ public class ExtratoBancario {
     private StatusConciliacao statusConciliacao = StatusConciliacao.PENDENTE;
 
     @Column(name = "id_importacao")
-    private Long idImportacao; // qual importação gerou esse registro
+    private Long idImportacao; // import that produced this row
 
     @Column(name = "id_lancamento_conciliado")
-    private Long idLancamentoConciliado; // referência ao lançamento que fez match
+    private Long idLancamentoConciliado; // linked internal entry
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

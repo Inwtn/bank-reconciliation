@@ -18,14 +18,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Parser para arquivos OFX (Open Financial Exchange).
- * Suporta o formato SGML/XML usado pelos principais bancos brasileiros.
+ * Parser for OFX (Open Financial Exchange) bank statements.
+ * Supports the SGML/XML form used by many banks.
  */
 @Slf4j
 @Component
 public class OfxParser {
 
-    // Formato de data OFX: YYYYMMDD ou YYYYMMDDHHMMSS
+    // OFX dates use YYYYMMDD or YYYYMMDDHHMMSS.
     private static final DateTimeFormatter OFX_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private static final Pattern STMTTRN_PATTERN =
@@ -44,10 +44,10 @@ public class OfxParser {
             Pattern.compile("<NAME>(.*?)<", Pattern.CASE_INSENSITIVE);
 
     public List<ExtratoBancario> parse(MultipartFile file) throws Exception {
-        log.info("Iniciando parse OFX do arquivo: {}", file.getOriginalFilename());
+        log.info("Parsing OFX statement: {}", file.getOriginalFilename());
 
         String content = new String(file.getBytes(), StandardCharsets.UTF_8);
-        // Alguns bancos usam ISO-8859-1
+        // Some banks use ISO-8859-1.
         if (!content.contains("<OFX>") && !content.contains("<ofx>")) {
             content = new String(file.getBytes(), "ISO-8859-1");
         }
@@ -63,11 +63,11 @@ public class OfxParser {
                     transacoes.add(extrato);
                 }
             } catch (Exception e) {
-                log.warn("Erro ao parsear transação OFX: {}. Bloco: {}", e.getMessage(), bloco);
+                log.warn("Could not parse OFX transaction: {}. Block: {}", e.getMessage(), bloco);
             }
         }
 
-        log.info("Parse OFX concluído. {} transações encontradas.", transacoes.size());
+        log.info("OFX parsing complete: {} transactions found", transacoes.size());
         return transacoes;
     }
 
@@ -83,7 +83,7 @@ public class OfxParser {
             return null;
         }
 
-        // Trunca data OFX para os primeiros 8 caracteres (YYYYMMDD)
+        // Keep the first eight date characters (YYYYMMDD).
         if (dataStr.length() > 8) {
             dataStr = dataStr.substring(0, 8);
         }
@@ -95,7 +95,7 @@ public class OfxParser {
                 : TipoLancamento.DEBITO;
         valor = valor.abs();
 
-        String descricao = memo != null ? memo : (name != null ? name : "Sem descrição");
+        String descricao = memo != null ? memo : (name != null ? name : "No description");
 
         return ExtratoBancario.builder()
                 .dataTransacao(data)

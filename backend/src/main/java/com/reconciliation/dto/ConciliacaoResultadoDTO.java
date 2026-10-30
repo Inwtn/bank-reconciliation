@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * DTO principal com o resultado completo de uma conciliação bancária.
+ * Complete result of one bank statement reconciliation.
  */
 @Data
 @Builder
@@ -25,7 +25,7 @@ public class ConciliacaoResultadoDTO {
     private String nomeArquivo;
     private LocalDateTime dataProcessamento;
 
-    // Totalizadores
+    // Totals
     private int totalRegistrosExtrato;
     private int totalConciliados;
     private int totalDivergentes;
@@ -35,23 +35,23 @@ public class ConciliacaoResultadoDTO {
     private BigDecimal valorTotalConciliado;
     private BigDecimal valorTotalDivergente;
 
-    // Percentual de conciliação
+    // Match percentage
     private double percentualConciliado;
 
-    // Itens detalhados
+    // Detailed items
     private List<ItemConciliacaoDTO> itensConciliados;
     private List<ItemConciliacaoDTO> itensDivergentes;
     private List<LancamentoPendenteDTO> lancamentosPendentes;
 
     /**
-     * Representa um item do extrato com seu status de conciliação.
+     * One statement item with its reconciliation status.
      */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ItemConciliacaoDTO {
-        // Dados do extrato bancário
+        // Bank statement fields
         private Long idExtrato;
         private LocalDate dataExtrato;
         private BigDecimal valorExtrato;
@@ -59,19 +59,19 @@ public class ConciliacaoResultadoDTO {
         private TipoLancamento tipoExtrato;
         private StatusConciliacao status;
 
-        // Dados do lançamento no sistema (se conciliado)
+        // Linked internal entry, when matched
         private Long idLancamento;
         private LocalDate dataLancamento;
         private BigDecimal valorLancamento;
         private String descricaoLancamento;
         private String documentoLancamento;
 
-        // Diferença de valor (para divergências parciais)
+        // Amount difference for partial discrepancies
         private BigDecimal diferenca;
     }
 
     /**
-     * Lançamento que existe no sistema mas não teve correspondência no extrato.
+     * Internal entry without a matching statement transaction.
      */
     @Data
     @Builder

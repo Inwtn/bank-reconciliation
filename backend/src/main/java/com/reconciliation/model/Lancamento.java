@@ -12,7 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Representa um lançamento financeiro interno do sistema (contas a pagar/receber).
+ * Internal payable or receivable entry.
  */
 @Entity
 @Table(name = "lancamentos")
@@ -38,18 +38,18 @@ public class Lancamento {
     private String descricao;
 
     @Column(length = 50)
-    private String documento; // número NF, boleto, etc.
+    private String documento; // invoice, bill, or other document reference
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private TipoLancamento tipo; // DEBITO ou CREDITO
+    private TipoLancamento tipo; // debit or credit
 
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private StatusConciliacao status = StatusConciliacao.PENDENTE;
 
     @Column(name = "id_extrato_bancario")
-    private Long idExtratoBancario; // referência ao registro do extrato que fez match
+    private Long idExtratoBancario; // matched bank statement row
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

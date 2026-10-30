@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * Registro de cada importação de extrato bancário realizada.
+ * Audit record for one bank statement import.
  */
 @Entity
 @Table(name = "importacoes")

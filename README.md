@@ -1,252 +1,98 @@
 # Bank Reconciliation Engine
 
-![Java](https://img.shields.io/badge/Java-17-007396?style=flat-square&logo=java)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2-6DB33F?style=flat-square&logo=springboot)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=flat-square&logo=postgresql)
-![Maven](https://img.shields.io/badge/Maven-3.9-C71A36?style=flat-square&logo=apachemaven)
-![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
-
 [![Java CI](https://github.com/Inwtn/bank-reconciliation/actions/workflows/ci.yml/badge.svg)](https://github.com/Inwtn/bank-reconciliation/actions/workflows/ci.yml)
 
-Motor de conciliação bancária automática que cruza extratos bancários (OFX/CSV) com os lançamentos financeiros registrados no sistema, identificando o que foi pago, o que está pendente e onde há divergências.
+A Java 17 and Spring Boot application that reconciles OFX and CSV bank statements with internal financial entries. It separates matched bank transactions, unmatched bank transactions, and internal entries that are still pending. The browser dashboard calls the real authenticated API.
 
----
+## Why it exists
 
-## O problema que resolve
+Finance teams often compare bank statements with accounts payable and receivable by hand. The engine checks amount, transaction type, and date, then returns a report and keeps an import history. A failed import remains visible without leaving partial statement rows in the database.
 
-Empresas que gerenciam fluxo de caixa precisam comparar manualmente o extrato bancário com suas contas a pagar e receber — um processo lento e sujeito a erros. Este sistema automatiza esse cruzamento de dados, entregando em segundos um relatório completo de conciliação.
+## Features
 
----
+- OFX and CSV imports with exact amount and debit/credit matching
+- Exact-date match first, then a ±1-day fallback to the closest date
+- Matched, unmatched, and pending records with totals and a match percentage
+- PostgreSQL persistence and import history, including failed imports
+- HTTP Basic accounts: `admin` can read and write; `viewer` can only read
+- Browser dashboard for entries, imports, results, and history
+- Public health check and admin-only Prometheus metrics
+- H2 unit and security tests, PostgreSQL integration tests with Testcontainers, dashboard client tests, and GitHub Actions CI
 
-## Funcionalidades
+## Run locally
 
-- Upload de extratos nos formatos OFX e CSV
-- Matching automático por valor, tipo e data (com tolerância configurável de dias)
-- Classificação de cada transação como Conciliado, Divergente ou Pendente
-- Dashboard web para visualização dos resultados
-- Histórico de todas as importações realizadas
-- Histórico de falhas de importação persistido mesmo quando a conciliação é revertida
-- API REST documentada com Swagger UI
-- Acesso por HTTP Basic com papéis `admin` (leitura e escrita) e `viewer` (somente leitura)
-- Health check público e métricas Prometheus acessíveis apenas ao administrador
-- Testes de integração com PostgreSQL real via Testcontainers e pipeline de CI
-
----
-
-## Arquitetura
-
-```
-bank-reconciliation/
-├── backend/
-│   └── src/main/java/com/reconciliation/
-│       ├── model/
-│       │   ├── Lancamento.java           # Contas a pagar/receber
-│       │   ├── ExtratoBancario.java      # Linhas do extrato importado
-│       │   ├── Importacao.java           # Histórico de importações
-│       │   ├── TipoLancamento.java       # DEBITO | CREDITO
-│       │   └── StatusConciliacao.java    # PENDENTE | CONCILIADO | DIVERGENTE
-│       ├── parser/
-│       │   ├── OfxParser.java            # Parser de arquivos OFX (SGML/XML)
-│       │   └── CsvParser.java            # Parser de arquivos CSV
-│       ├── service/
-│       │   ├── ConciliacaoService.java   # Motor principal de conciliação
-│       │   └── LancamentoService.java
-│       ├── controller/
-│       │   ├── ConciliacaoController.java
-│       │   └── LancamentoController.java
-│       ├── dto/
-│       ├── repository/
-│       └── config/
-├── frontend/
-│   └── dashboard.html
-├── docker-compose.yml
-├── init.sql
-└── README.md
-```
-
----
-
-## Algoritmo de Matching
-
-Para cada transação do extrato bancário importado:
-
-1. Busca match exato — mesmo valor, tipo e data com status PENDENTE no sistema
-2. Se não encontrar — repete a busca com tolerância de ±1 dia
-3. Se houver candidatos — escolhe o lançamento com data mais próxima
-4. Se conciliado — ambos os registros são marcados como CONCILIADO e vinculados entre si
-5. Se sem match — transação do extrato marcada como DIVERGENTE
-
-Ao final, lançamentos que ainda estão PENDENTE são os que não apareceram no extrato.
-
-A tolerância de dias é configurável em `ConciliacaoService.java`:
-
-```java
-private static final int TOLERANCIA_DIAS = 1;
-```
-
----
-
-## Tecnologias
-
-| Camada | Tecnologia |
-|--------|-----------|
-| Linguagem | Java 17 |
-| Framework | Spring Boot 3.2 |
-| Banco de dados | PostgreSQL 15 |
-| ORM | Spring Data JPA / Hibernate |
-| Parse CSV | Apache Commons CSV |
-| Parse Excel | Apache POI |
-| Documentação | SpringDoc OpenAPI (Swagger) |
-| Testes | JUnit 5 + Spring Boot Test |
-| Containerização | Docker + Docker Compose |
-
----
-
-## Como Rodar
-
-### Pré-requisitos
-
-- Java 17+
-- Maven 3.9+
-- Docker e Docker Compose
-
-### 1. Clonar o repositório
-
-```bash
-git clone https://github.com/Inwtn/bank-reconciliation.git
-cd bank-reconciliation
-```
-
-### 2. Configurar credenciais locais
-
-Copie `.env.example` para `.env` e substitua os três valores de exemplo por senhas diferentes. O arquivo `.env` é ignorado pelo Git. As credenciais não têm valores padrão na API.
-
-### 3. Subir a aplicação
+You need Docker and Docker Compose. Copy `.env.example` to `.env` and set three different passwords. `.env` is ignored by Git.
 
 ```bash
 docker compose up --build
 ```
 
-A API estará em `http://localhost:8080/api`. O banco só fica disponível depois do health check do PostgreSQL.
+Open the dashboard at **http://localhost:3000**. The API is at **http://localhost:8080/api** and Swagger UI is at **http://localhost:8080/api/swagger-ui**. The dashboard is served on port 3000 so the API's CORS rules permit it; opening `dashboard.html` directly as a `file://` page does not provide the same origin.
 
-Para executar a API fora do Docker, inicie o PostgreSQL e defina `APP_ADMIN_PASSWORD` e `APP_VIEWER_PASSWORD` no ambiente antes de usar Maven:
+To try the complete flow:
+
+1. Connect as `admin` with the password from `.env`.
+2. Click **Create sample entries**. This writes three example records to PostgreSQL.
+3. Download and import **sample.csv** from the dashboard.
+4. Inspect the matched, unmatched, and pending tabs, then the import history.
+5. Connect as `viewer` to inspect the read-only experience.
+
+The sample data uses a fixed date, **2026-10-29**, so its matching behavior is reproducible. Creating sample entries repeatedly adds more rows; use a fresh database volume for a clean walkthrough.
+
+For a backend-only development run, start PostgreSQL, set `DB_URL`, `DB_USER`, `DB_PASSWORD`, `APP_ADMIN_PASSWORD`, and `APP_VIEWER_PASSWORD`, then run `mvn spring-boot:run` from `backend/`.
+
+## API
+
+The existing API paths and JSON field names are kept for compatibility. They are documented here in English.
+
+| Method | Path | Purpose | Access |
+| --- | --- | --- | --- |
+| `GET` | `/api/actuator/health` | Health check | Public |
+| `GET` | `/api/actuator/prometheus` | Import metrics | Admin |
+| `GET` | `/api/lancamentos` | List entries; optional `status=PENDENTE` | Admin, viewer |
+| `POST` | `/api/lancamentos` | Create an entry | Admin |
+| `DELETE` | `/api/lancamentos/{id}` | Delete an entry | Admin |
+| `GET` | `/api/lancamentos/dashboard/stats` | Entry statistics | Admin, viewer |
+| `POST` | `/api/conciliacao/importar` | Upload and reconcile OFX/CSV, multipart field `arquivo` | Admin |
+| `GET` | `/api/conciliacao/historico` | Import history | Admin, viewer |
+| `GET` | `/api/conciliacao/historico/{id}` | One import record | Admin, viewer |
+
+Example:
 
 ```bash
-cd backend
-mvn spring-boot:run
+curl -u viewer:YOUR_VIEWER_PASSWORD http://localhost:8080/api/lancamentos
+curl -u admin:YOUR_ADMIN_PASSWORD http://localhost:8080/api/actuator/prometheus
 ```
 
-`frontend/dashboard.html` é uma demonstração local do fluxo de conciliação. Ela simula os dados no navegador e ainda não consome a API autenticada; use o Swagger UI ou um cliente HTTP para testar a API real.
+The dashboard stores credentials only in the current tab's memory and clears the password input after connecting. HTTP Basic must use HTTPS outside localhost. Set passwords using your deployment platform's secret manager and do not expose PostgreSQL publicly.
 
-### Autenticação e observabilidade
+## Statement format
 
-- Usuário `viewer`: leitura de lançamentos, histórico e documentação da API.
-- Usuário `admin`: leitura, criação, importação, exclusão e acesso às métricas.
-- `GET /api/actuator/health`: público, usado pelo health check do container.
-- `GET /api/actuator/prometheus`: requer `admin`; inclui contadores e duração de importações por resultado.
-
-Exemplos:
-
-```bash
-curl -u viewer:SUA_SENHA http://localhost:8080/api/lancamentos
-curl -u admin:SUA_SENHA http://localhost:8080/api/actuator/prometheus
-```
-
-HTTP Basic deve ser usado sobre HTTPS fora do ambiente local. Para uma implantação pública, configure senhas pelo gerenciador de segredos da plataforma e não exponha o PostgreSQL diretamente.
-
----
-
-## Endpoints
-
-### Conciliacao
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `POST` | `/api/conciliacao/importar` | Upload do extrato (OFX ou CSV) |
-| `GET` | `/api/conciliacao/historico` | Lista todas as importações |
-| `GET` | `/api/conciliacao/status` | Health check |
-
-### Lancamentos
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| `POST` | `/api/lancamentos` | Registrar lançamento |
-| `GET` | `/api/lancamentos` | Listar lançamentos |
-| `GET` | `/api/lancamentos?status=PENDENTE` | Filtrar por status |
-| `DELETE` | `/api/lancamentos/{id}` | Excluir lançamento |
-| `GET` | `/api/lancamentos/dashboard/stats` | Estatísticas gerais |
-
-Documentação interativa disponível em `http://localhost:8080/api/swagger-ui`, com autenticação.
-
----
-
-## Formato dos Arquivos
-
-### CSV
+The sample file uses English headers and transaction types:
 
 ```csv
-Data,Descricao,Valor,Tipo
-2024-01-15,Pagamento Fornecedor ABC,-1500.00,DEBITO
-2024-01-16,Recebimento Cliente XYZ,3200.00,CREDITO
+Date,Description,Amount,Type
+2026-10-29,Supplier payment ABC,-1500.00,DEBIT
+2026-10-29,Customer payment XYZ,3200.00,CREDIT
 ```
 
-Colunas aceitas:
+The parser also accepts Portuguese header aliases, `DEBITO` and `CREDITO`, and signed amounts. Dates may use `yyyy-MM-dd`, `dd/MM/yyyy`, `dd-MM-yyyy`, or `MM/dd/yyyy`. For OFX, it reads `STMTTRN` records with amount, date, and transaction identifiers.
 
-- **Data** — `data`, `date`, `data_transacao`. Formatos: `yyyy-MM-dd` ou `dd/MM/yyyy`
-- **Descricao** — `descricao`, `description`, `historico`, `memo`
-- **Valor** — `valor`, `value`, `amount`. Valor negativo é interpretado como débito
-- **Tipo** — `tipo`, `type`. Aceita `DEBITO` ou `CREDITO` (opcional se o valor tiver sinal)
+## Architecture
 
-### OFX
+`backend/` contains the Spring API, parsers, reconciliation service, repositories, and tests. `frontend/` contains the static dashboard and a small API client. Docker Compose runs PostgreSQL, the API, and Nginx for the dashboard. The API never stores user credentials in the frontend; authentication is checked server-side for each request.
 
-Formato SGML/OFX padrão dos bancos brasileiros. O parser extrai automaticamente as tags `<STMTTRN>`.
+The reconciliation service records the start of an import in a separate transaction, runs matching in one transaction, and marks the import as completed or failed in another. This keeps failure history while rolling back partial matching work.
 
-```xml
-<STMTTRN>
-  <TRNTYPE>DEBIT</TRNTYPE>
-  <DTPOSTED>20240115</DTPOSTED>
-  <TRNAMT>-1500.00</TRNAMT>
-  <FITID>20240115001</FITID>
-  <MEMO>Pagamento Fornecedor ABC</MEMO>
-</STMTTRN>
-```
-
----
-
-## Testes
+## Tests
 
 ```bash
-cd backend
-mvn test
+mvn --batch-mode -f backend/pom.xml verify
+npm test --prefix frontend
 ```
 
-Os testes cobrem:
+The PostgreSQL Testcontainers tests require Docker. GitHub Actions runs both commands on every pull request and on pushes to `main`.
 
-- Match exato de data e valor
-- Transação sem correspondência marcada como divergente
-- Multiplas transacoes com lançamentos pendentes
-- Calculo correto do percentual de conciliacao
-- Autenticação, permissões de leitura e escrita e acesso às métricas
-- Persistência de uma conciliação em PostgreSQL 15 usando Testcontainers
-- Registro de falha sem linhas de extrato parciais no PostgreSQL
+## License
 
-`mvn verify` é executado no GitHub Actions a cada pull request e push para `main`. O teste com PostgreSQL exige Docker disponível no ambiente de testes.
-
----
-
-## Variaveis de Ambiente
-
-```env
-DB_URL=jdbc:postgresql://localhost:5432/bank_reconciliation
-DB_USER=postgres
-DB_PASSWORD=uma-senha-local
-APP_ADMIN_PASSWORD=uma-senha-forte
-APP_VIEWER_PASSWORD=outra-senha-forte
-```
-
----
-
-## Licença
-
-Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
+MIT. See [LICENSE](LICENSE).

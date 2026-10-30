@@ -20,14 +20,14 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Parser para arquivos CSV de extrato bancário.
+ * Parser for CSV bank statements.
  *
- * Formato esperado (com cabeçalho):
- * Data,Descricao,Valor,Tipo
- * 2024-01-15,Pagamento Fornecedor ABC,-1500.00,DEBITO
- * 2024-01-16,Recebimento Cliente XYZ,3000.00,CREDITO
+ * Expected format with headers:
+ * Date,Description,Amount,Type
+ * 2026-10-29,Supplier payment,-1500.00,DEBIT
+ * 2026-10-29,Customer payment,3000.00,CREDIT
  *
- * Aceita também o padrão de valor negativo = débito, positivo = crédito.
+ * Signed amounts can also determine debit or credit when Type is absent.
  */
 @Slf4j
 @Component
@@ -41,7 +41,7 @@ public class CsvParser {
     };
 
     public List<ExtratoBancario> parse(MultipartFile file) throws Exception {
-        log.info("Iniciando parse CSV do arquivo: {}", file.getOriginalFilename());
+        log.info("Parsing CSV statement: {}", file.getOriginalFilename());
 
         List<ExtratoBancario> transacoes = new ArrayList<>();
 
@@ -63,31 +63,31 @@ public class CsvParser {
                         transacoes.add(extrato);
                     }
                 } catch (Exception e) {
-                    log.warn("Erro na linha {}: {}", linha, e.getMessage());
+                    log.warn("CSV line {} could not be parsed: {}", linha, e.getMessage());
                 }
                 linha++;
             }
         }
 
-        log.info("Parse CSV concluído. {} transações encontradas.", transacoes.size());
+        log.info("CSV parsing complete: {} transactions found", transacoes.size());
         return transacoes;
     }
 
     private ExtratoBancario parsarLinha(CSVRecord record, int linha) {
-        // Tenta diferentes nomes de colunas comuns
+        // Accept common English and Portuguese column names.
         String dataStr = getColuna(record, "data", "date", "data_transacao", "dt_lancamento");
         String descricao = getColuna(record, "descricao", "descricão", "description", "historico", "memo");
         String valorStr = getColuna(record, "valor", "value", "amount", "vlr_lancamento");
         String tipoStr = getColuna(record, "tipo", "type", "operacao");
 
         if (dataStr == null || valorStr == null) {
-            log.warn("Linha {} ignorada: campos obrigatórios ausentes (data ou valor)", linha);
+            log.warn("CSV line {} ignored: date or amount is missing", linha);
             return null;
         }
 
         LocalDate data = parsearData(dataStr);
         if (data == null) {
-            log.warn("Linha {}: formato de data não reconhecido: {}", linha, dataStr);
+            log.warn("CSV line {} has an unrecognized date: {}", linha, dataStr);
             return null;
         }
 
@@ -101,10 +101,10 @@ public class CsvParser {
             } else if (tipoNormalizado.equals("C") || tipoNormalizado.startsWith("CRED")) {
                 tipo = TipoLancamento.CREDITO;
             } else {
-                throw new IllegalArgumentException("Tipo de lançamento inválido: " + tipoStr);
+                throw new IllegalArgumentException("Invalid transaction type: " + tipoStr);
             }
         } else {
-            // Infere pelo sinal do valor
+            // Infer the type from the amount's sign.
             tipo = valor.compareTo(BigDecimal.ZERO) < 0
                     ? TipoLancamento.DEBITO
                     : TipoLancamento.CREDITO;
@@ -115,7 +115,7 @@ public class CsvParser {
                 .dataTransacao(data)
                 .valor(valor)
                 .tipo(tipo)
-                .descricao(descricao != null ? descricao : "Sem descrição")
+                .descricao(descricao != null ? descricao : "No description")
                 .idTransacaoBanco("CSV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .build();
     }
@@ -150,7 +150,7 @@ public class CsvParser {
                     return valor.trim();
                 }
             } catch (IllegalArgumentException ignored) {
-                // Coluna não existe neste CSV
+                // This column is absent from the CSV.
             }
         }
         return null;

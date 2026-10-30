@@ -41,7 +41,7 @@ public class LancamentoService {
 
     public Lancamento buscarPorId(Long id) {
         return lancamentoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Lançamento não encontrado: " + id));
+                .orElseThrow(() -> new RuntimeException("Entry not found: " + id));
     }
 
     @Transactional

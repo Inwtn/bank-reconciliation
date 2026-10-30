@@ -1,6 +1,13 @@
 version: '3.8'
 
 services:
+  dashboard:
+    image: nginx:1.27-alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+
   # Banco de Dados PostgreSQL
   postgres:
     image: postgres:15-alpine

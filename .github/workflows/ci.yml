@@ -21,3 +21,8 @@ jobs:
           cache-dependency-path: backend/pom.xml
       - name: Build and test with PostgreSQL Testcontainers
         run: mvn --batch-mode --no-transfer-progress -f backend/pom.xml verify
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test dashboard API client
+        run: npm test --prefix frontend

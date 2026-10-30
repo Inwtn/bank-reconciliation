@@ -17,13 +17,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/lancamentos")
 @RequiredArgsConstructor
-@Tag(name = "Lançamentos", description = "Gerenciamento de lançamentos financeiros (contas a pagar/receber)")
+@Tag(name = "Financial entries", description = "Manage accounts payable and receivable entries")
 public class LancamentoController {
 
     private final LancamentoService lancamentoService;
 
     @PostMapping
-    @Operation(summary = "Criar lançamento", description = "Registra um novo lançamento de conta a pagar ou receber.")
+    @Operation(summary = "Create an entry", description = "Register a new payable or receivable entry.")
     public ResponseEntity<Lancamento> criar(@Valid @RequestBody LancamentoRequestDTO dto) {
         Lancamento criado = lancamentoService.criar(dto);
         return ResponseEntity
@@ -32,7 +32,7 @@ public class LancamentoController {
     }
 
     @GetMapping
-    @Operation(summary = "Listar lançamentos")
+    @Operation(summary = "List entries")
     public ResponseEntity<List<Lancamento>> listar(
             @RequestParam(required = false) StatusConciliacao status) {
         if (status != null) {
@@ -42,20 +42,20 @@ public class LancamentoController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Buscar lançamento por ID")
+    @Operation(summary = "Get an entry by ID")
     public ResponseEntity<Lancamento> buscar(@PathVariable Long id) {
         return ResponseEntity.ok(lancamentoService.buscarPorId(id));
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Excluir lançamento")
+    @Operation(summary = "Delete an entry")
     public ResponseEntity<Void> excluir(@PathVariable Long id) {
         lancamentoService.excluir(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/dashboard/stats")
-    @Operation(summary = "Estatísticas do dashboard")
+    @Operation(summary = "Get dashboard statistics")
     public ResponseEntity<LancamentoService.DashboardStats> stats() {
         return ResponseEntity.ok(lancamentoService.obterStats());
     }
