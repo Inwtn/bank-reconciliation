@@ -91,17 +91,18 @@ public class CsvParser {
             return null;
         }
 
-        // Remove R$, espaços, pontos de milhar e normaliza vírgula decimal
-        valorStr = valorStr.replaceAll("[R$\\s]", "")
-                           .replaceAll("\\.", "")
-                           .replace(",", ".");
-        BigDecimal valor = new BigDecimal(valorStr);
+        BigDecimal valor = new BigDecimal(normalizarValor(valorStr));
 
         TipoLancamento tipo;
         if (tipoStr != null && !tipoStr.isEmpty()) {
-            tipo = tipoStr.toUpperCase().contains("DEB") || tipoStr.toUpperCase().contains("D")
-                    ? TipoLancamento.DEBITO
-                    : TipoLancamento.CREDITO;
+            String tipoNormalizado = tipoStr.trim().toUpperCase();
+            if (tipoNormalizado.equals("D") || tipoNormalizado.startsWith("DEB")) {
+                tipo = TipoLancamento.DEBITO;
+            } else if (tipoNormalizado.equals("C") || tipoNormalizado.startsWith("CRED")) {
+                tipo = TipoLancamento.CREDITO;
+            } else {
+                throw new IllegalArgumentException("Tipo de lançamento inválido: " + tipoStr);
+            }
         } else {
             // Infere pelo sinal do valor
             tipo = valor.compareTo(BigDecimal.ZERO) < 0
@@ -117,6 +118,28 @@ public class CsvParser {
                 .descricao(descricao != null ? descricao : "Sem descrição")
                 .idTransacaoBanco("CSV-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .build();
+    }
+
+    private String normalizarValor(String original) {
+        String valor = original.replaceAll("[R$\\s]", "");
+        int ultimoPonto = valor.lastIndexOf('.');
+        int ultimaVirgula = valor.lastIndexOf(',');
+
+        if (ultimoPonto >= 0 && ultimaVirgula >= 0) {
+            // The last separator is the decimal separator; the other is for thousands.
+            return ultimoPonto > ultimaVirgula
+                    ? valor.replace(",", "")
+                    : valor.replace(".", "").replace(',', '.');
+        }
+        if (ultimaVirgula >= 0) {
+            return valor.length() - ultimaVirgula - 1 == 3
+                    ? valor.replace(",", "")
+                    : valor.replace(',', '.');
+        }
+        if (ultimoPonto >= 0 && valor.length() - ultimoPonto - 1 == 3) {
+            return valor.replace(".", "");
+        }
+        return valor;
     }
 
     private String getColuna(CSVRecord record, String... nomes) {
